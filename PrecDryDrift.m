@@ -10,7 +10,8 @@
 %  p : a precipitation map or mask;
 % X/Y: X/Y coordinates of grid points (m);
 % pct: a percentage to define dry grid cell (set to [] if p is a precipitation
-%      mask).
+%      mask);
+% oun: full name of file to save the dry drift and precipitation mask variable.
 
 %% Output
 % df : distance to the closest dry pixel (i.e. dry drift, m);
