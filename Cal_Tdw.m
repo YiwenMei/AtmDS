@@ -56,6 +56,7 @@ if ischar(Humfn)
 else
   Hum=Humfn;
 end
+clear Tafn Pafn Humfn
 k=Ta==ndv | Pa==ndv | Hum==ndv;
 Ta(k)=NaN;
 Pa(k)=NaN;
@@ -71,7 +72,7 @@ B(Ta<-5)=Bi;
 C=Cm*ones(size(Ta));
 C(Ta>5)=Cw;
 C(Ta<-5)=Ci;
-es=A.*exp(B.*(Ta+abs0)./(Ta+abs0+C));
+es=Magnus_F(Ta);
 ms=epsi*es./(Pa-es); % saturated mixing ratio
 
 switch HumT

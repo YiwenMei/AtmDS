@@ -40,7 +40,6 @@ SG=imresize(SG,size(Z),'bilinear');
 SG(k)=[];
 a=length(find(SG==0));
 
-
 b=length(Z(~k));
 if a>0 && a<b % If a time step is partially enlighted
 %% Find pixels with solar elevation lower than 0

@@ -26,9 +26,7 @@ function [wsd,wdd,Ud,Vd]=Wind_Terrain(Wfn,Asp,Slp,Cpl,Zd,ndv)
 %% Check the input
 switch nargin
   case {1:5}; error('Not enough number of arguments');
-
-  case 6;
-
+  case 6
   otherwise; error('Too many number of arguments');
 end
 

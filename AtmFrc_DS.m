@@ -38,17 +38,6 @@ end
 R=287.0; % Ideal gass constant J/kg*K
 g=9.81; % Gravitational acceleration m/s2
 epsi=.62198; % Ratio of molecular weight of water and dry air
-abs0=-273.15;
-% Coefficient for Magnus formula adpoted from Buck (1981)
-Aw=611.21; % If Ta>5, use coeffcient of the ew2 curve in Buck (1981)
-Bw=17.368;
-Cw=238.88;
-Am=611.21; % If -5<=Ta<=5, use coeffcient of the ew1 curve in Buck (1981)
-Bm=17.502;
-Cm=240.97;
-Ai=611.15; % If Ta<-5, use coeffcient of the ei2 curve in Buck (1981)
-Bi=22.452;
-Ci=272.55;
 
 %% Parameters
 Zd(Zd==ndv)=NaN;
@@ -110,24 +99,16 @@ Tm=(imresize(Ta,size(Zd),'bilinear')+Tad)/2;
 Pad=imresize(Pa,size(Zd),'bilinear')./exp(g*(Zd-imresize(Z,size(Zd),'bilinear'))./(R*Tm));
 
 % Saturated vapor pressure (Pa)
-esd=Aw*exp(Bw*(Tad+abs0)./(Tad+abs0+Cw)); % Magnus formula
-esd(Tad<=5-abs0)=Am*exp(Bm*(Tad(Tad<=5-abs0)+abs0)./(Tad(Tad<=5-abs0)+abs0+Cm));
-esd(Tad<-5-abs0)=Ai*exp(Bi*(Tad(Tad<-5-abs0)+abs0)./(Tad(Tad<-5-abs0)+abs0+Ci));
-es=Aw*exp(Bw*(Ta+abs0)./(Ta+abs0+Cw));
-es(Ta<=5-abs0)=Am*exp(Bm*(Ta(Ta<=5-abs0)+abs0)./(Ta(Ta<=5-abs0)+abs0+Cm));
-es(Ta<-5-abs0)=Ai*exp(Bi*(Ta(Ta<-5-abs0)+abs0)./(Ta(Ta<-5-abs0)+abs0+Ci));
+esd=Magnus_F(Tad);
+es=Magnus_F(Ta);
 
 % Dew point temperature (K)
 Tdd=imresize(Td,size(Zd))+imresize(LRd,size(Zd),'bilinear').*dZ;
 Tdd(Tdd>Tad)=Tad(Tdd>Tad); % Set Td > Ta to Ta
 
 % Vapor pressure (Pa)
-ed=Aw*exp(Bw*(Tdd+abs0)./(Tdd+abs0+Cw)); % ed=esd(Tdwd);
-ed(Tad<=5-abs0)=Am*exp(Bm*(Tdd(Tad<=5-abs0)+abs0)./(Tdd(Tad<=5-abs0)+abs0+Cm));
-ed(Tad<-5-abs0)=Ai*exp(Bi*(Tdd(Tad<-5-abs0)+abs0)./(Tdd(Tad<-5-abs0)+abs0+Ci));
-e=Aw*exp(Bw*(Td+abs0)./(Td+abs0+Cw));
-e(Ta<=5-abs0)=Am*exp(Bm*(Td(Ta<=5-abs0)+abs0)./(Td(Ta<=5-abs0)+abs0+Cm));
-e(Ta<-5-abs0)=Ai*exp(Bi*(Td(Ta<-5-abs0)+abs0)./(Td(Ta<-5-abs0)+abs0+Ci));
+ed=Magnus_F(Tdd);
+e=Magnus_F(Td);
 
 % Specific Humidity
 w=(Pa-(1-epsi)*e)./e; % q=epsi*e/[Pa-(1-epsi)*e];

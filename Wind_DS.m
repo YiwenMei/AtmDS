@@ -33,7 +33,14 @@ switch nargin
   case {1:4}; error('Not enough number of arguments');
   case 5; z0=1; DH=0; z0d=1; DHd=0; % Adjustment of measurement height
   case 6; error('Downscaled surface roughness missing');
-  case 7; DH=0; DHd=0;
+  case 7
+    DH=0; DHd=0;
+    if ischar(z0fn)
+      z0=double(imread(z0fn));
+    else
+      z0=z0fn;
+    end
+    z0(z0==ndv)=NaN;
   case 8; error('Downscaled zero-plane displacement height missing');
   case 9
     if ischar(z0fn)

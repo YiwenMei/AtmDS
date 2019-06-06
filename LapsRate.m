@@ -11,8 +11,8 @@
 %% Input
 % Tfn : funll name of file or array for temperature data (K);
 % Hmfn: full name of file or array for the measurement heights of the original
-%       wind speed (m);
-% Hnfn: full name of file or array for the new measurement height of wind (m);
+%       temperature (m);
+% Hnfn: full name of file or array for the new measurement height of temperature (m);
 %  Z  : elevation data over the same area (m);
 % pflg: parallel flag (1 - use parallel channel, 0 - squential);
 % ndv : no-data value in Z and Tfn (please use the same ndv for inputs);
