@@ -26,6 +26,9 @@
 % qd : downscaled specific humidity (g/g).
 % RHd: downscaled relative humidity (%).
 
+%% Additional note
+% Require Magnus_F.m.
+
 function [Tad,Tdd,Pad,qd,RHd]=AtmFrc_DS(Tafn,LRfn,Tdfn,LRdfn,Pafn,qfn,RHfn,Z,Zd,ndv)
 %% Check the inputs
 switch nargin

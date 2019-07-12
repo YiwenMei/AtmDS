@@ -11,7 +11,7 @@
 %% Input
 % Tfn : funll name of file or array for temperature data (K);
 % Hmfn: full name of file or array for the measurement heights of the original
-%       temperature (m);
+%       temperature (m ag);
 % Hnfn: full name of file or array for the new measurement height of temperature (m);
 %  Z  : elevation data over the same area (m);
 % pflg: parallel flag (1 - use parallel channel, 0 - squential);
@@ -24,6 +24,7 @@
 %% Output
 % LR : lapse rate (K/m);
 % EM : performance metrics of the regression model;
+% Hn : new measurement height (m ag);
 % Tn : temperature at new measurement height (K).
 
 %% Additional note

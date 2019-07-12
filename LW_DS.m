@@ -4,8 +4,10 @@
 
 %% Functionality
 % This function is used for the downscaling of incident longwave radiation. It
-% supports both user-specific emissivity variables or emissivity calculated using
-% Cosgrove et al. (2003).
+% requries emissivity parameters (at coarse and downscaled resolution). The user
+% may specify their own emissivity array or use the built-in methods for calculation.
+% The user can choose from either Cosgrove et al. (2003) or Allen et al. (2007)
+% method. They will require different inputs.
 
 %% Input
 % LGfn: full name of file or array for coarse resolution incident longwave radiation
@@ -13,14 +15,40 @@
 % Tafn: full name of file or array for coarse resolution air temperature (K);
 % Tad : downscaled air temperature (K);
 % ndv : no-data value for the inputs dataset (use only one ndv for all inputs);
-% pr1 : coarse resolution emissivity or full name of file or array for coarse
-%       resolution air pressure (Pa);
-% pr2 : downscaled emissivity or downscaled air pressure (Pa);
+
+% User-specific emissivity file
+% pr1 : array of coarse resolution emissivity;
+% pr2 : array of downscaled resolution emissivity;
+
+% C2003 method
+% pr1 : full name of file or array for coarse resolution air pressure (Pa);
+% pr2 : downscaled air pressure (Pa);
 % pr3 : full name of file or array for coarse resolution specific humidity (g/g);
 % pr4 : downscaled specific humidity (g/g);
 
+% A2007 method
+%  pr1 : full name of file or array for coarse resolution air pressure (Pa);
+%  pr2 : downscaled air pressure (Pa);
+%  pr3 : full name of file or array for coarse resolution incident shortwave
+%        at land surface (W/m2);
+%  pr4 : full name of file or array for coarse resolution incident shortwave
+%        at top-of-atmosphere (W/m2);
+%  pr5 : full name of file or array for coarse resolution dew point temperature (K);
+%  pr6 : downscaled dew point temperature (K);
+%  pr7 : solar elevation at coarse resolution (deg);
+%  pr8 : solar elevation at downscaled resolution (deg);
+%  pr9 : solar azimuth at coarse resolution (deg);
+% pr10 : terrain azimuth at coarse resolution (deg);
+% pr11 : terrain slope at coarse resolution (deg).
+
 %% Output
 % LGd : downscaled incident longwave radiation at land surface (W/m2);
+% emd : downscaled incident emissivity (W/m2);
+% sts : number of pixel with emissivity greater than 1 in C2003 or fitting coefficient
+%       and error metrics of the em vs tau_m fitting in A2007.
+
+%% Additional note
+% Require RemOut_2D.m and Magnus_F.m.
 
 function [LGd,emd,sts]=LW_DS(LGfn,Tafn,Tad,ndv,pr1,pr2,pr3,pr4,pr5,pr6,pr7,pr8,pr9,pr10,pr11)
 %% Check the inputs
