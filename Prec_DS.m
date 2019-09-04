@@ -99,9 +99,9 @@ if strncmp(md,'Select',6)
         Mdl=TreeBagger(pr2,X(pr1,:),Y(pr1,:),'Method','regression','OOBPredictorImportance','on','MinLeafSize',pr3);
       end
 
-      if ~isempty(strfind(md,'PermuteError'))
+      if contains(md,'PermuteError')
         PI=Mdl.OOBPermutedPredictorDeltaError; % MDA
-      elseif ~isempty(strfind(md,'DecreaseImpure'))
+      elseif contains(md,'DecreaseImpure')
         PI=Mdl.DeltaCriterionDecisionSplit; % MDI
       end
       PII{nt}=[PII{nt} PI'];
@@ -129,7 +129,7 @@ if strncmp(md,'Select',6)
 
 elseif strncmp(md,'Evaluate',8)
 %% Function evaluation mode
-  if ~isempty(strfind(md,'mask'))
+  if contains(md,'mask')
 % Model fitting for precipitation mask
     if strcmp(pr4,'UseParallel')
       paropt=statset('UseParallel',true);
@@ -157,7 +157,7 @@ elseif strncmp(md,'Evaluate',8)
     O2(Yh=='1' & Y{:,1}=='0')=3; % False Alarm (F)
     O2(Yh=='1' & Y{:,1}=='1')=4; % Hit (H)
 
-  elseif ~isempty(strfind(md,'rate'))
+  elseif contains(md,'rate')
 % Model fitting for precipitation rate
     if strcmp(pr4,'UseParallel')
       paropt=statset('UseParallel',true);
@@ -190,14 +190,14 @@ elseif strncmp(md,'Evaluate',8)
 
 elseif strncmp(md,'Predict',7)
 %% Prediction mode
-  if ~isempty(strfind(md,'mask'))
+  if contains(md,'mask')
 % Prediction of precipitation mask
     Pmk=Y.predict(X);
     Pmk=cellfun(@str2double,Pmk);
     O1=nan(size(pr2));
     O1(pr2)=Pmk; % Precipitation mask at high resolution
 
-  elseif ~isempty(strfind(md,'rate'))
+  elseif contains(md,'rate')
 % Prediction of precipitation rate
     Pr=Y.predict(X);
     O1=nan(size(pr2));

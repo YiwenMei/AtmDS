@@ -1,23 +1,19 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 10/20/2018
+% Last update: 05/10/2019
 
 %% Functionality
-% Downscaling of air temperature, dew point temperature, air pressure, specific
-% and relative humidity.
+% Downscaling of air temperature, dew point temperature, air pressure. Specific
+%  and relative humidity are calculated based on the results.
 
 %% Input
-% Tafn : full name of file or array for coarse resolution air temperature (K);
-% LRfn : full name of file or array for air temperature lapse rate (K/m);
-% Tdfn : full name of file or array for coarse resolution dew point temperature
-%        (K);
-% LRdfn: full name of file or array for dew point lapse rate (K/m);
-% Pafn : full name of file or array for coarse resolution air pressure (Pa);
-%  qfn : full name of file or array for coarse resolution specific humidity (g/g);
-% RHfn : full name of file or array for coarse resolution relative humidity (%);
-%   Z  : coarse resolution elevation (m);
-%  Zd  : high resolution elevation (m);
-%  ndv : no-data value for the inputs dataset (use only one ndv for all inputs).
+% Ta_fd : details of file or workspace variable for original air temperature (K);
+% LR_fd : details of file or workspace variable for air temperature lapse rate (K/m);
+% Td_fd : details of file or workspace variable for original dew point temperature (K);
+% LRd_fd: details of file or workspace variable for dew point lapse rate (K/m);
+% Pa_fd : details of file or workspace variable for original air pressure (Pa);
+%  Z_fd : details of file or workspace variable for coarse resolution elevation (m);
+% Zd_fd : details of file or workspace variable for high resolution elevation (m);
 
 %% Output
 % Tad: downscaled air temperature (K);
@@ -27,100 +23,68 @@
 % RHd: downscaled relative humidity (%).
 
 %% Additional note
-% Require Magnus_F.m.
+% Require read2Dvar.m, Magnus_F.m, and Cal_dew.m.
 
-function [Tad,Tdd,Pad,qd,RHd]=AtmFrc_DS(Tafn,LRfn,Tdfn,LRdfn,Pafn,qfn,RHfn,Z,Zd,ndv)
+function [Tad,Tdd,Pad,qd,RHd]=AtmFrc_DS(Ta_fd,LR_fd,Td_fd,LRd_fd,Pa_fd,Z_fd,Zd_fd)
 %% Check the inputs
-switch nargin
-    case {1:9}; error('Not enough number of arguments');
-    case 10
-    otherwise; error('Too many number of arguments');
-end
+narginchk(7,7);
+ips=inputParser;
+ips.FunctionName=mfilename;
+fprintf('%s received 7 required inputs\n',mfilename);
+
+addRequired(ips,'Ta_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Ta_fd',1));
+addRequired(ips,'LR_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'LR_fd',2));
+addRequired(ips,'Td_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Td_fd',3));
+addRequired(ips,'LRd_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'LRd_fd',4));
+addRequired(ips,'Pa_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Pa_fd',5));
+addRequired(ips,'Z_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Z_fd',6));
+addRequired(ips,'Zd_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Zd_fd',7));
+parse(ips,Ta_fd,LR_fd,Td_fd,LRd_fd,Pa_fd,Z_fd,Zd_fd);
+clear ips
 
 %% Constant
 R=287.0; % Ideal gass constant J/kg*K
 g=9.81; % Gravitational acceleration m/s2
-epsi=.62198; % Ratio of molecular weight of water and dry air
-
-%% Parameters
-Zd(Zd==ndv)=NaN;
-Z(Z==ndv)=NaN;
-
-if ischar(LRfn)
-  LR=double(imread(LRfn));
-else
-  LR=LRfn;
-end
-if ischar(LRdfn)
-  LRd=double(imread(LRdfn));
-else
-  LRd=LRfn;
-end
 
 %% Read the inputs
-if ischar(Tafn)
-  Ta=double(imread(Tafn));
-else
-  Ta=Tafn;
-end
-if ischar(Tdfn)
-  Td=double(imread(Tdfn));
-else
-  Td=Tdfn;
-end
-if ischar(Pafn)
-  Pa=double(imread(Pafn));
-else
-  Pa=Pafn;
-end
-if ischar(qfn)
-  q=double(imread(qfn));
-else
-  q=qfn;
-end
-if ischar(RHfn)
-  RH=double(imread(RHfn));
-else
-  RH=RHfn;
-end
+FunName=dbstack;
+Z=read2Dvar(Z_fd,FunName);
+LR=read2Dvar(LR_fd,FunName);
+LRd=read2Dvar(LRd_fd,FunName);
+Ta=read2Dvar(Ta_fd,FunName);
+Td=read2Dvar(Td_fd,FunName);
+Pa=read2Dvar(Pa_fd,FunName);
+clear Ta_fd Td_fd Pa_fd Z_fd LR_fd LRd_fd
 
-k=Ta==ndv | Td==ndv | Pa==ndv | q==ndv | RH==ndv;
+k=isnan(Ta) | isnan(Td) | isnan(Pa) | isnan(Z) | isnan(LR) | isnan(LRd);
 Ta(k)=NaN;
 Td(k)=NaN;
 Td(Td>Ta)=Ta(Td>Ta); % Set Td > Ta to Ta
 Pa(k)=NaN;
-q(k)=NaN;
-RH(k)=NaN;
+Z(k)=NaN;
+LR(k)=NaN;
+LRd(k)=NaN;
 
 %% Downscaling
 % Air temperature (K)
+Zd=read2Dvar(Zd_fd,FunName);
+clear Zd_fd
+
 dZ=Zd-imresize(Z,size(Zd),'bilinear');
-Tad=imresize(Ta,size(Zd),'bilinear')+imresize(LR,size(Zd),'bilinear').*dZ;
+clear Zd Z
+Tad=imresize(Ta,size(dZ),'bilinear')+imresize(LR,size(dZ),'bilinear').*dZ;
 
 % Air pressure (Pa)
-Tm=(imresize(Ta,size(Zd),'bilinear')+Tad)/2;
-Pad=imresize(Pa,size(Zd),'bilinear')./exp(g*(Zd-imresize(Z,size(Zd),'bilinear'))./(R*Tm));
-
-% Saturated vapor pressure (Pa)
-esd=Magnus_F(Tad);
-es=Magnus_F(Ta);
+Tm=(imresize(Ta,size(dZ),'bilinear')+Tad)/2;
+Pad=imresize(Pa,size(dZ),'bilinear')./exp(g*dZ./(R*Tm));
+clear Tm Ta Pa LR
 
 % Dew point temperature (K)
-Tdd=imresize(Td,size(Zd))+imresize(LRd,size(Zd),'bilinear').*dZ;
+Tdd=imresize(Td,size(dZ))+imresize(LRd,size(dZ),'bilinear').*dZ;
+clear Td LRd
 Tdd(Tdd>Tad)=Tad(Tdd>Tad); % Set Td > Ta to Ta
 
-% Vapor pressure (Pa)
-ed=Magnus_F(Tdd);
-e=Magnus_F(Td);
-
-% Specific Humidity
-w=(Pa-(1-epsi)*e)./e; % q=epsi*e/[Pa-(1-epsi)*e];
-w=imresize(w,size(Zd),'bilinear').*ed./(Pad-(1-epsi)*ed); % w=qd/q;
-qd=imresize(q,size(Zd),'bilinear').*w;
-
-% Relative Humidity
-w=(es./e).*(Pa-e)./(Pa-es); % RH=e/es*(Pa-es)/(Pa-e);
-w=imresize(w,size(Zd),'bilinear').*(ed./esd).*(Pad-esd)./(Pad-ed); % w=RHd/RH;
-RHd=imresize(RH,size(Zd),'bilinear').*w;
+% Humidity
+[RHd,qd]=Cal_Tdw(Tad,Pad,'Dew Point',Tdd);
 RHd(RHd>100)=100;
 end

@@ -20,49 +20,58 @@
 % dn : date number of the day;
 % ofh: offset hours of the day.
 
-function [dn,ofh]=offsethour(SGfn,ndv,Lat,Lon,Z,ds,rng)
+function ofh=offsethour(SG_fd,Lat_fd,Lon_fd,Z_fd,dn,rng)
 %% Check the input
-switch nargin
-  case {1:6}; error('Not enough number of arguments');
-  case 7
-  otherwise; error('Too many number of arguments');
-end
+narginchk(6,6);
+ips=inputParser;
+ips.FunctionName=mfilename;
+% fprintf('%s received 6 required inputs\n',mfilename);
 
-%% Find pixels with shortwave equal to 0
-k=Z==ndv;
-if ischar(SGfn)
-  SG=double(imread(SGfn));
-else
-  SG=SGfn;
-end
-SG(SG==ndv)=1;
+addRequired(ips,'SG_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'SG_fd',1));
+addRequired(ips,'Lat_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Lat_fd',2));
+addRequired(ips,'Lon_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Lon_fd',3));
+addRequired(ips,'Z_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Z_fd',4));
+addRequired(ips,'dn',@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'dn',5));
+addRequired(ips,'rng',@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'rng',6));
+
+parse(ips,SG_fd,Lat_fd,Lon_fd,Z_fd,dn,rng);
+clear ips
+
+%% Read the inputs
+Z=read2Dvar(Z_fd);
+Lat=read2Dvar(Lat_fd);
+Lon=read2Dvar(Lon_fd);
+SG=read2Dvar(SG_fd);
 SG=imresize(SG,size(Z),'bilinear');
-SG(k)=[];
-a=length(find(SG==0));
+SG(isnan(Z))=NaN;
+clear SG_fd Lat_fd Lon_fd Z_fd
 
-b=length(Z(~k));
-if a>0 && a<b % If a time step is partially enlighted
-%% Find pixels with solar elevation lower than 0
-  df=nan(length(rng),1);
+%% Find the inconsistent pixels
+df=nan(length(rng),1);
+[~,El]=Call_sunR(dn,Lat,Lon,Z);
+if ~isempty(find((El>0 & SG==0) | (El<=0 & SG>0), 1))
   parfor i=1:length(rng)
-    dn=datenum(ds,'yyyymmddHH')+rng(i)/24;
-    jdn=julian(datevec(dn)); % Junlian date number
-    sun=sun_positionR(jdn,[Lat(~k) Lon(~k) Z(~k)]');
-    El=90-sun.zenith;
-    b=length(find(El<=0));
+    dni=dn+rng(i)/24;
+    [~,El]=Call_sunR(dni,Lat,Lon,Z);
 
-    df(i)=abs(a-b)/a;
+    df(i)=length(find((El>0 & SG==0) | (El<=0 & SG>0)));
   end
+  clear Lat Lon Z SG
+
 %% Compare the amount of pixel and find the minimum difference
   I=find(df==min(df));
-  [~,i]=min(abs(I-7));
+  [~,i]=min(abs(I-length(I)));
   i=I(i);
   ofh=rng(i)/24;
-  dn=datenum(ds,'yyyymmddHH');
 
 else
-  dn=datenum(ds,'yyyymmddHH');
   ofh=NaN;
-  fprintf('%s skipped;\n',ds);
-  return;
+  if isempty(find(El>0, 1))
+    fprintf('%s all night\n',datestr(dn,'yyyymmddHH'));
+  elseif isempty(find(El<=0, 1))
+    fprintf('%s all day\n',datestr(dn,'yyyymmddHH'));
+  else
+    fprintf('%s matched\n',datestr(dn,'yyyymmddHH'));
+  end
+end
 end

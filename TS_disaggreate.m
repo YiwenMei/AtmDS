@@ -24,70 +24,66 @@
 % tmfl: full name of files for the outputted high spatiotemporal precipitation
 %       fields in .mat.
 
-function tmfl=TS_disaggreate(fTS,fSF,fdn,ndv,cor,K,wkpth)
-% Coarse resolution precipitation
-fd_c=read2Dvar(fSF,fdn,ndv);
-[~,nm,~]=fileparts(fSF);
-
-x=cor(1,2)+cor(5,2)/2:cor(5,2):cor(2,2)-cor(5,2)/2; % Coarse resolution grids
-y=cor(3,2)-cor(6,2)/2:-cor(6,2):cor(4,2)+cor(6,2)/2;
-
+function tmfl=TS_disaggreate(fTS,cor,fSF,cor1,K,wkpth)
 % Hourly weighting factor of precipitation
-fvc=zeros(length(x)*length(y),size(fTS,1));
-parfor i=1:size(fTS,1)
-  fv=double(imread(fTS(i,:)));
-  fvc(:,i)=reshape(fv,numel(fv),1);
+fvc=[];
+for i=1:size(fTS{1},1)
+  fv=fTS;
+  fv{1}=fTS{1}(i,:);
+  fv=read2Dvar(fv);
+  fvc=nansum(cat(3,fvc,fv),3);
 end
-fv=sum(fvc,2); % Cumulative precipitation
-k=fv==0;
 
-fvc=fvc./repmat(fv,1,size(fTS,1)); % Hourly weighting factor, wp
-parfor i=1:size(fTS,1)
-  tmfn=[wkpth sprintf('%s%02i.mat',nm,i-1)];
-  parsave(tmfn,fvc(:,i),'wp');
+parfor i=1:size(fTS{1},1)
+  fv=fTS;
+  fv{1}=fTS{1}(i,:);
+  fv=read2Dvar(fv);
+  wp=fv./fvc; % Hourly weighting factor, wp
+  wp(fvc==0)=0;
+
+  [~,nm,~]=fileparts(fTS{1}(i,:));
+  tmfn=[wkpth sprintf('w%s.mat',nm)];
+  parsave(tmfn,wp,'wp');
 end
-clear fvc fv
+clear fv wp
 
 %% Time disaggregation
-[X,Y]=meshgrid(cor(1,1)+cor(5,1)/2:cor(5,1):cor(2,1)-cor(5,1)/2,...
-    cor(3,1)-cor(6,1)/2:-cor(6,1):cor(4,1)+cor(6,1)/2);
-X=reshape(X,numel(X),1); % High resolution grids
-Y=reshape(Y,numel(Y),1);
+[X,Y]=meshgrid(cor1(1,1)+cor1(3,1)/2:cor1(3,1):cor1(2,1)-cor1(3,1)/2,...
+    cor1(1,2)-cor1(3,2)/2:-cor1(3,2):cor1(2,2)+cor1(3,2)/2);
+fSF=read2Dvar(fSF);
+X=X(fSF>0);
+Y=Y(fSF>0);
+% X=reshape(X,numel(X),1); % High resolution grids
+% Y=reshape(Y,numel(Y),1);
 
+% Coarse resolution precipitation
+x=cor(1,1)+cor(3,1)/2:cor(3,1):cor(2,1)-cor(3,1)/2; % Coarse resolution grids
+y=cor(1,2)-cor(3,2)/2:-cor(3,2):cor(2,2)+cor(3,2)/2;
 [x,y]=meshgrid(x,y); % Coarse resolution grids
-x=x(~k);
-y=y(~k);
+x=x(fvc>0);
+y=y(fvc>0);
 
 [id,d]=knnsearch([x y],[X Y],'K',K);
-k1=fd_c>0;
-k1=reshape(k1,numel(k1),1);
-id=id(k1,:);
-d=d(k1,:);
-clear x y Id k X Y
-d=2.^-(d/hypot(cor(5,2)/2,cor(6,2)/2)); % Inversed distance;
+clear x y X Y
+
+d=2.^-(d/hypot(cor(3,1)/2,cor(3,2)/2)); % Inversed distance;
 d=d./sum(d,2); % Weighting factor of wp for the K neighbors
 
 % Time disaggreateion using inversed distance weighted wp
-k=reshape(~isnan(fd_c),numel(fd_c),1);
-tmfl=cell(size(fTS,1),1);
-parfor i=1:size(fTS,1)
-  tmfn=[wkpth sprintf('%s%02i.mat',nm,i-1)];
+tmfl=cell(size(fTS{1},1),1);
+parfor i=1:size(fTS{1},1)
+  [~,nm,~]=fileparts(fTS{1}(i,:));
+  tmfn=[wkpth sprintf('w%s.mat',nm)];
   wp=matfile(tmfn);
   wp=wp.wp;
+  wp=wp(fvc>0);
   wp=wp(id);
-  K=sum(~isnan(wp),2);
-  wd=d;
-  wd(isnan(wp))=0;
-  wd=wd./sum(wd,2); % Updated weighting factor of wp
-  wp=nanmean(wp.*wd,2).*K;
-  wp(K==0)=1/size(fTS,1);
+  wp=sum(wp.*d,2);
 
-  Wp=nan(size(k1));
-  Wp(k1)=wp;
-  Wp(~k1 & k)=0;
-  Wp=reshape(Wp,size(fd_c));
-  fd_h=fd_c.*Wp;
-  fd_h(isnan(fd_h))=ndv;
+  fd_h=fSF;
+  fd_h(fSF>0)=wp;
+  fd_h=fd_h.*fSF;
+  fd_h(isnan(fd_h))=fTS{2};
 
 % Save the files
   parsave(tmfn,fd_h,'pr');

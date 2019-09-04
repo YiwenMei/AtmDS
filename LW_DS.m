@@ -1,218 +1,109 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 03/29/2019
+% Last update: 8/2/2019
 
 %% Functionality
-% This function is used for the downscaling of incident longwave radiation. It
-% requries emissivity parameters (at coarse and downscaled resolution). The user
-% may specify their own emissivity array or use the built-in methods for calculation.
-% The user can choose from either Cosgrove et al. (2003) or Allen et al. (2007)
-% method. They will require different inputs.
+% This function is used for the downscaling of incident longwave radiation.
 
 %% Input
-% LGfn: full name of file or array for coarse resolution incident longwave radiation
-%       at land surface (W/m2);
-% Tafn: full name of file or array for coarse resolution air temperature (K);
-% Tad : downscaled air temperature (K);
-% ndv : no-data value for the inputs dataset (use only one ndv for all inputs);
+% LG_fd : details of file or workspace variable for original incident longwave
+%         radiation (W/m2);
+% Ta_fd : details of file or workspace variable for original air temperature (K);
+% Td_fd : details of file or workspace variable for original dew point temperature (K);
+% Tad_fd: details of file or workspace variable for downscaled air temperature (K);
+% Tdd_fd: details of file or workspace variable for downscaled dew point temperature (K);
+% EmS_cl: characters specifying the methods to calculate atmospheric emissivity
+%         (it can be a user-specified emissivity or emissivity calculated based
+%         on the Brut, Konz, Satt, Idso, Izio, or Prat method summarized in
+%         Fiddes & Grubler (2014). Possible types are 'user', 'brut', 'konz',
+%         'satt','idso','izio', or 'prat');
 
-% User-specific emissivity file
-% pr1 : array of coarse resolution emissivity;
-% pr2 : array of downscaled resolution emissivity;
-
-% C2003 method
-% pr1 : full name of file or array for coarse resolution air pressure (Pa);
-% pr2 : downscaled air pressure (Pa);
-% pr3 : full name of file or array for coarse resolution specific humidity (g/g);
-% pr4 : downscaled specific humidity (g/g);
-
-% A2007 method
-%  pr1 : full name of file or array for coarse resolution air pressure (Pa);
-%  pr2 : downscaled air pressure (Pa);
-%  pr3 : full name of file or array for coarse resolution incident shortwave
-%        at land surface (W/m2);
-%  pr4 : full name of file or array for coarse resolution incident shortwave
-%        at top-of-atmosphere (W/m2);
-%  pr5 : full name of file or array for coarse resolution dew point temperature (K);
-%  pr6 : downscaled dew point temperature (K);
-%  pr7 : solar elevation at coarse resolution (deg);
-%  pr8 : solar elevation at downscaled resolution (deg);
-%  pr9 : solar azimuth at coarse resolution (deg);
-% pr10 : terrain azimuth at coarse resolution (deg);
-% pr11 : terrain slope at coarse resolution (deg).
+% Emd_fd: if EmS_cl is 'user', use this optional input to specify emissivity
+%         as details of file or workspace variable;
 
 %% Output
-% LGd : downscaled incident longwave radiation at land surface (W/m2);
-% emd : downscaled incident emissivity (W/m2);
-% sts : number of pixel with emissivity greater than 1 in C2003 or fitting coefficient
-%       and error metrics of the em vs tau_m fitting in A2007.
+% LGd: downscaled incident longwave radiation (W/m2);
 
 %% Additional note
-% Require RemOut_2D.m and Magnus_F.m.
+% Require read2Dvar.m and Magnus_F.m.
 
-function [LGd,emd,sts]=LW_DS(LGfn,Tafn,Tad,ndv,pr1,pr2,pr3,pr4,pr5,pr6,pr7,pr8,pr9,pr10,pr11)
+function LGd=LW_DS(LG_fd,Ta_fd,Td_fd,Tad_fd,Tdd_fd,EmS_cl,varargin)
 %% Check the inputs
-epsi=.62198; % Ratio of molecular weight of water and dry air
-sigma=5.670374419e-8; % Stefan-Boltzmann constant (W/m2*K4)
-switch nargin
-    case {1:5}; error('Not enough arguments');
-    case 6
-        EmT='user';
-        em=pr1;
-        emd=pr2;
-        clear pr1 pr2
-    case 7; error('Not enough arguments for C2003 method');
-    case 8
-        EmT='C2003';
-        Pafn=pr1;
-        Pad=pr2;
-        qfn=pr3;
-        qd=pr4;
-        clear pr1 pr2 pr3 pr4
-    case {9:14}; error('Not enough arguments for A2007 method');
-    case 15
-        EmT='A2007';
-        Pafn=pr1;
-        Pad=pr2;
-        SGfn=pr3;
-        STfn=pr4;
-        Tdfn=pr5;
-        Tdd=pr6;
-        El=pr7;
-        Eld=pr8;
-        Azd=pr9;
-        Asp=pr10;
-        Slp=pr11;
-        clear pr1 pr2 pr3 pr4 pr5 pr6 pr7 pr8 pr9 pr10 pr11;
-    otherwise; error('Too many number of arguments');
-end
+narginchk(6,7);
+ips=inputParser;
+ips.FunctionName=mfilename;
+fprintf('%s received 6 required and %d optional inputs\n',mfilename,length(varargin));
+
+addRequired(ips,'LG_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'LG_fd',1));
+addRequired(ips,'Ta_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Ta_fd',2));
+addRequired(ips,'Td_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Td_fd',3));
+addRequired(ips,'Tad_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Tad_fd',4));
+addRequired(ips,'Tdd_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Tdd_fd',5));
+addRequired(ips,'EmS_cl',@(x) any(strcmp(x,{'brut','konz','satt','idso','izio','prat'})));
+
+addOptional(ips,'Emd_fd',[],@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Emd_fd',7));
+parse(ips,LG_fd,Ta_fd,Td_fd,Tad_fd,Tdd_fd,EmS_cl,varargin{:});
+Emd_fd=ips.Results.Emd_fd;
+clear ips varargin
 
 %% Read the inputs
-if ischar(Tafn)
-  Ta=double(imread(Tafn));
-else
-  Ta=Tafn;
-end
-Ta(Ta==ndv)=NaN;
-if ischar(LGfn)
-  LG=double(imread(LGfn));
-else
-  LG=LGfn;
-end
-LG(LG==ndv)=NaN;
-clear Tafn LGfn
-sts=[];
+FunName=dbstack;
+LG=read2Dvar(LG_fd,FunName);
+Ta=read2Dvar(Ta_fd,FunName);
+Tad=read2Dvar(Tad_fd,FunName);
+clear Ta_fd LG_fd Tad_fd
 
-%% C2003 emissivity
-if strcmp(EmT,'C2003')
-  if ischar(Pafn)
-    Pa=double(imread(Pafn));
-  else
-    Pa=Pafn;
-  end
-  Pa(Pa==ndv)=NaN;
-  if ischar(qfn)
-    q=double(imread(qfn));
-  else
-    q=qfn;
-  end
-  q(q==ndv)=NaN;
-  clear Pafn qfn
+%% Emissivity
+switch EmS_cl
+  case 'user'
+    emd=read2Dvar(Emd_fd,FunName);
+    em=imresize(emd,size(LG),'bilinear');
+    clear Emd_fd
 
-  ed=qd.*Pad./(epsi+(1-epsi)*qd);
-  emd=1.08*(1-exp(-ed.^(Tad/2016))); % Cosgrove et al. (2003) emissivity
-  e=q.*Pa./(epsi+(1-epsi)*q);
-  em=1.08*(1-exp(-e.^(Ta/2016))); % Cosgrove et al. (2003) emissivity
-  clear ed qd Pad e q Pa
+  otherwise % Calculate emissivity following Fiddes & Grubler (2014)
+    sigma=5.670374419e-8; % Stefan-Boltzmann constant (W/m2*K4)
+    e=Magnus_F(Td_fd);
+    ed=Magnus_F(Tdd_fd);
 
-  sts=[length(find(emd>1))/length(find(~isnan(emd))) length(find(em>1))/length(find(~isnan(em)))];
-end
+    switch EmS_cl % Forms of clear-sky emissivity listed in Gubler et al. (2012)
+      case 'brut'
+        em_cl=1.24*(e./Ta).^(1./7);
+        emd_cl=1.24*(ed./Tad).^(1./7);
 
-%% A2007 emissivity
-if strcmp(EmT,'A2007')
-  if ischar(Pafn)
-    Pa=double(imread(Pafn));
-  else
-    Pa=Pafn;
-  end
-  Pa(Pa==ndv)=NaN;
-  if ischar(SGfn)
-    SG=double(imread(SGfn));
-  else
-    SG=SGfn;
-  end
-  SG(SG==ndv)=NaN;
-  if ischar(STfn)
-    ST=double(imread(STfn));
-  else
-    ST=STfn;
-  end
-  ST(ST==ndv)=NaN;
-  if ischar(Tdfn)
-    Td=double(imread(Tdfn));
-  else
-    Td=Tdfn;
-  end
-  Td(Td==ndv)=NaN;
-  clear Pafn SGfn STfn Tdfn
+      case 'konz' % Method addopted in Fiddes & Grubler (2014)
+        em_cl=.23+.484*(e./Ta).^(1./8);
+        emd_cl=.23+.484*(ed./Tad).^(1./8);
 
-  Asp(Asp==ndv)=NaN;
-  Slp(Slp==ndv)=NaN;
-  El(El<0)=0;
-  El(El>90)=90;
-  ze=90-El;
-  ze(ze>85)=85;
-  Eld(Eld==ndv)=NaN;
-  Eld(Eld<0)=0;
-  Eld(Eld>90)=90;
-  zed=90-Eld;
-  zed(zed>85)=85;
-  Azd(Azd==ndv)=NaN;
-  clear El Eld
+      case 'satt' % Method addopted in Cosgrove et al. (2003)
+        em_cl=1.08*(1-exp(-e.^(Ta/2016)));
+        emd_cl=1.08*(1-exp(-ed.^(Tad/2016)));
 
-% Coarse resolution broad-band atmospheric transmissivity
-  kt=SG./ST;
-  cosi=cosd(ze);
-  te=-.00146*(Pa/1000)./cosi./kt;
-  e=Magnus_F(Td)/1000;
-  W=.14*e.*Pa/1000+2.1;
-  te1=-.075*(W./cosi).^.4;
-  tau_sw=.35+.627*exp(te+te1); % Broad-band atmospheric transmissivity
-  tau_sw=reshape(tau_sw,numel(tau_sw),1);
+      case 'idso'
+        em_cl=.7+5.95e-5*e.*exp(1500./Ta);
+        emd_cl=.7+5.95e-5*e.*exp(1500./Tad);
 
-% Model fitting
-  em=LG./Ta.^4/sigma;
-  y=log(reshape(em,numel(em),1));
-  X=[ones(size(y)) log(-log(tau_sw))];
-  [b,~,res,~,sts]=regress(y,X); % Allen et al. (2007) Eq.(25)
-  sts=[b' sqrt(sum(res.^2)/(length(res)-length(b))) sts];
+      case 'izio' % Method addopted in Gupta & Tarboton et al. (2016)
+        em_cl=1-.43*exp(-11.5*e./Ta);
+        emd_cl=1-.43*exp(-11.5*ed./Tad);
 
-% High resolution broad-band atmospheric transmissivity
-  cosid=cosd(Slp).*cosd(zed)+sind(Slp).*sind(zed).*cosd(Azd-Asp);
-  cosid(Slp==0)=cosd(zed(Slp==0)); % Slp=0 means Asp=NaN except the ocean
-  cosid(cosid<cosd(85))=cosd(85);
-  te=-.00146*(Pad/1000)./cosid./imresize(kt,size(Pad),'bilinear');
-  e=Magnus_F(Tdd)/1000;
-  W=.14*e.*Pad/1000+2.1;
-  te1=-.075*(W./cosid).^.4;
-  tau_sw=.35+.627*exp(te+te1); % Broad-band atmospheric transmissivity
-  clear cosid Slp zen Azd Asp e W te te1
+      case 'prat'
+        em_cl=1-(1+46.5*e./Ta)*exp(-(1.2+3*46.5*e./Ta).^.5);
+        emd_cl=1-(1+46.5*ed./Tad)*exp(-(1.2+3*46.5*ed./Tad).^.5);
+    end
 
-% Estimate high resolution emissivity
-  tau_sw=reshape(tau_sw,numel(tau_sw),1);
-  y=[ones(size(tau_sw)) log(-log(tau_sw))]*b;
-  emd=exp(reshape(y,size(Tad)));
+% Additive All-sky emissivity
+    em=LG./Ta.^4/sigma; % All-sky emissivity
+    em_c=em-em_cl; % Cloud emissivity
+    emd=emd_cl+imresize(em_c,size(Tad),'bilinear');
+    if ~isempty(find(emd<0, 1))
+      emi=imresize(em,size(Tad),'bilinear');
+      emd(emd<0)=emi(emd<0);
+    end
+    clear e ed em_c emi
 end
 
 %% Downscaling of longwave radiation
 kem=emd./imresize(em,size(emd),'bilinear');
-te=log(kem);
-te1=te(~isnan(te));
-thr=1:.1:6;
-pfg=0; % Turn to 1 for a check
-[~,tu,td]=RemOut_2D(te1,thr,pfg); 
-kem(te>tu)=exp(tu);
-kem(te<td)=exp(td);
 kTa=Tad./imresize(Ta,size(Tad),'bilinear'); % LG=ems*sigma*Ta^4
 LGd=kem.*kTa.^4.*imresize(LG,size(Tad),'bilinear');
 end

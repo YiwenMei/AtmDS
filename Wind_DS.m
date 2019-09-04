@@ -1,130 +1,127 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 01/31/2019
+% Last update: 8/17/2019
 
 %% Functionality
-% This function downscales wind speed assuming log-wind profile with a donwscaled
-% friction velocity introduced by Tao & Barrow (2017).
+% This function downscales wind speed assuming log-wind profile.
 
 %% Input
-% Wfn : file full name or array for coarse resolution wind speed (m/s) or a 2-by-1 
-%       cell array storing in cell 1 the file full name or array for coarse resolution
-%       eastward wind (m/s) and cell 2 the northward wind (m/s);
-% Hmfn: file full name or array for measurement height of Wfn (m a.g.l);
-% Hnfn: file full name or array for measurement height of outputted wind speed
-%       (m a.g.l);
-%  Zd : high resolution elevation (m a.s.l.);
-% ndv : no-data value for the inputs dataset (use only one ndv for all inputs);
-% z0fn: file full name or array for coarse resolution surface roughness (m);
-% z0d : downscaled surface roughness (m);
-% DHfn: file full name or array for coarse resolution zero-plane displacement
-%       height (m).
-% DHd : downscaled zero-plane displacement height (m);
+% ws : details of file or workspace variable for original wind speed (m/s);
+% wty: type of ws inputting (possible types are 'UV Wind' or 'Total Wind');
+% Hm : details of file or workspace variable for measurement height of original
+%      wind speed (m ag);
+% Hn : details of file or workspace variable for new measurement height of outputted
+%      wind speed (m ag);
+
+% z0 : details of file or workspace variable for original surface roughness (m);
+% z0d: details of file or workspace variable for downscaled surface roughness (m);
+% d0 : details of file or workspace variable for original zero-plane displacement
+%      height (m);
+% d0d: details of file or workspace variable for downscaled zero-plane displacement
+%      height (m).
 
 %% Output
 % wsd: downscaled wind speed (m/s);
 % wdd: downscaled wind direction (E is 0, counter-clock's wise is +);
-% Ud : downscaled eastward wind (m/s);
-% Vd : downscaled northward wind (m/s).
+% ud : downscaled eastward wind (m/s);
+% vd : downscaled northward wind (m/s).
 
-function [wsd,wdd,Ud,Vd]=Wind_DS(Wfn,Hmfn,Hnfn,Zd,ndv,z0fn,z0d,DHfn,DHd)
-%% Check the inputs
-switch nargin
-  case {1:4}; error('Not enough number of arguments');
-  case 5; z0=1; DH=0; z0d=1; DHd=0; % Adjustment of measurement height
-  case 6; error('Downscaled surface roughness missing');
-  case 7
-    DH=0; DHd=0;
-    if ischar(z0fn)
-      z0=double(imread(z0fn));
-    else
-      z0=z0fn;
-    end
-    z0(z0==ndv)=NaN;
-  case 8; error('Downscaled zero-plane displacement height missing');
-  case 9
-    if ischar(z0fn)
-      z0=double(imread(z0fn));
-    else
-      z0=z0fn;
-    end
-    z0(z0==ndv)=NaN;
-    if ischar(DHfn)
-      DH=double(imread(DHfn));
-    else
-      DH=DHfn;
-    end
-    DH(DH==ndv)=NaN;
-  otherwise; error('Too many number of arguments');
-end
+%% Additional note
+% Require read2Dvar.m.
+
+function [wsd,wdd,ud,vd]=Wind_DS(ws,wty,Hm,Hn,varargin)
+%% Check inputs
+narginchk(4,8);
+ips=inputParser;
+ips.FunctionName=mfilename;
+fprintf('%s received 4 required and %d optional inputs\n',mfilename,length(varargin));
+
+addRequired(ips,'ws',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'ws',1));
+addRequired(ips,'wty',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'wty',2));
+addRequired(ips,'Hm',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Hm',3));
+addRequired(ips,'Hn',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Hn',4));
+
+addOptional(ips,'z0',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'z0',5));
+addOptional(ips,'z0d',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'z0d',6));
+addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'d0',7));
+addOptional(ips,'d0d',0,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'d0d',8));
+
+parse(ips,ws,wty,Hm,Hn,varargin{:});
+z0=ips.Results.z0;
+z0d=ips.Results.z0d;
+d0=ips.Results.d0;
+d0d=ips.Results.d0d;
+clear ips varargin
 
 %% Read the wind records
-if iscell(Wfn) % U and V wind
-  Ufn=Wfn{1};
-  Vfn=Wfn{2};
-  if ischar(Ufn)
-    u=double(imread(Ufn));
-    v=double(imread(Vfn));
-  else
-    u=Ufn;
-    v=Vfn;
-  end
-  u(u==ndv)=NaN;
-  v(v==ndv)=NaN;
-  ws=hypot(u,v);
-  wd=atan2d(v,u); % E is 0, counter-clock's wise is +
-  wd(wd<0)=wd(wd<0)+360;
+switch wty
+  case 'UV Wind' % U and V wind
+    u=read2Dvar(ws(1,:));
+    v=read2Dvar(ws(2,:));
 
-elseif ischar(Wfn) % Total wind
-  ws=double(imread(Wfn));
-  ws(ws==ndv)=NaN;
-else
-  ws=Wfn;
-  ws(ws==ndv)=NaN;
+    ws=hypot(u,v);
+    wd=atan2d(v,u); % E is 0, counter-clock's wise is +
+    wd(wd<0)=wd(wd<0)+360;
+
+  case 'Total Wind' % Total wind
+    ws=read2Dvar(ws);
 end
 
-%% Parameters
-if ischar(Hmfn)
-  Hm=double(imread(Hmfn));
-  Hm(Hm==ndv)=NaN;
-else
-  Hm=Hmfn;
-end
-if ischar(Hnfn)
-  Hn=double(imread(Hnfn));
-else
-  Hn=Hnfn;
-end
-Hn(Hn==ndv)=NaN;
-clear Ufn Vfn Hmfn Hnfn z0fn DHfn
+Hm=read2Dvar(Hm);
+Hn=read2Dvar(Hn);
+clear u v
 
 %% Downscaling of wind speed/direction
-k=Zd==ndv;
-kus=(z0d./imresize(z0,size(Zd),'bilinear')).^.09; % Tao & Barrow (2018)
-kus(k)=NaN;
+if ~isscalar(z0)
+% Ratio of shear velocity
+  z0=read2Dvar(z0);
+  z0d=read2Dvar(z0d);
 
-kh=(Hm-DH)./z0;
-kh(kh<=0)=NaN;
-khi=imresize(kh,size(Zd),'bilinear');
-khd=(imresize(Hn,size(Zd),'bilinear')-DHd)./z0d;
-khd(khd<=0)=khi(khd<=0);
-khd=log(khd)./imresize(log(kh),size(Zd),'bilinear');
-khd(k)=NaN;
-clear khi u v z0 DH
+  if isempty(find(z0<=0, 1)) || isempty(find(z0d<=0, 1))
+    z0i=imresize(z0,size(z0d),'bilinear');
+    kus=(z0d./z0i).^.09; % Tao & Barrow (2018)
+    clear z0i
 
-wsd=imresize(ws,size(Zd),'bilinear').*khd.*kus;
-wsd(wsd<0)=0;
+% Ratio of height
+    d0=read2Dvar(d0);
+    kh=(Hm-d0)./z0;
+    if isempty(find(kh<=0 & ws>0, 1))
+      kh(kh<=0)=exp(1);
 
-if iscell(Wfn) % U and V wind
-  Vd=wsd.*imresize(sind(wd),size(Zd),'bilinear');
-  Ud=wsd.*imresize(cosd(wd),size(Zd),'bilinear');
-  wdd=atan2d(Vd,Ud); % E is 0, counter-clock's wise is +
-  wdd(wdd<0)=wdd(wdd<0)+360;
+      d0d=read2Dvar(d0d);
+      khd=(imresize(Hn,size(z0d),'bilinear')-d0d)./z0d;
+      khd(khd<=0)=1;
+      kh=log(khd)./imresize(log(kh),size(z0d),'bilinear');
+      kh(kh<0)=0;
+      kh=kh/mean(kh(~isnan(kh)));
+      kh=kh.*kus; % Combine the weighting factors
+      clear khi z0 z0d d0 d0d khd kus
+
+    else
+      error('When Hm below d0, ws should be 0');
+    end
+
+  else
+    error('z0 and z0d must be larger than 0');
+  end
 
 else
-  Vd=[];
-  Ud=[];
-  wdd=[];
+  kh=Hn./Hm; % kus=1
 end
-clear ud vd khd kh kus ws wd
+wsd=imresize(ws,size(kh),'bilinear').*kh;
+clear kh Hn Hm ws
+
+%% Output wind speed/direction
+switch wty
+  case 'UV Wind' % U and V wind
+    vd=wsd.*imresize(sind(wd),size(wsd),'bilinear');
+    ud=wsd.*imresize(cosd(wd),size(wsd),'bilinear');
+    wdd=atan2d(vd,ud); % E is 0, counter-clock's wise is +
+    wdd(wdd<0)=wdd(wdd<0)+360;
+
+  case 'Total Wind'
+    vd=[];
+    ud=[];
+    wdd=[];
+end
 end

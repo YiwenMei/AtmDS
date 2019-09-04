@@ -1,106 +1,109 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 02/13/2019
+% Last update: 8/16/2019
 
 %% Functionality
-% This function has two functionalities:
-%  1)Downscaling of surface roughness based on vegetation index;
-%  2)Calculate zero-plane displacement height based on the an empirical relationship
-%    with surface roughness (Kimura et al. 1999).
+% This function is used to downscale surface roughness based on land cover and
+%  vegetation index and to calculate the zero-plane displacement height.
 
 %% Input
-% z0 : surface roughness at coarse resolution (m);
-% DH : zero-plane displacement height at coarse resolution (m);
-% VId: vegetation index at downscaled resolution;
-% VI : vegetation index at coarse resolution;
-% ndv : no-data value for the inputs dataset (use only one ndv for all inputs);
+%  z0  : details of file or workspace variable for original surface roughness (m);
+%  dn  : date number of the z0 record time step;
+%  LM  : details of file or workspace variable for the high resolution land mask
+%        (NaN for water and others for land);
+% LCFl : details of file list of the land cover classes fraction;
+%  LUT : file name of the z0 look-up-table (use ',' as separator and '.dat' as
+%        file extension);
+% wkpth: working directory of the function;
+
+% VI : details of file or workspace variable for the high resolution vegetation
+%      index of the time step;
+% VIm: details of file or workspace variable for the high resolution vegetation
+%      climatology for a period (e.g. mean of VI of a year);
+% d0 : details of file or workspace variable for original zero-plane displacement
+%      height (m).
 
 %% Output
-% z0d : surface roughness at downscaled resolution (m);
-% DHd : zero-plane displacement height at downscaled resolution (m);
-% c_z0: coefficient (intersect and slope) of the linear model for the surface
-%       roughness vs. vegetation index relationship;
-% s_z0: rmse, r2, F statistics, p value, and error variance of the multi-linear
-%       model;
-% c_DH: coefficient (intersect and slope) of the Kimura et al. 1999 model for
-%       the surface roughness vs. zero-plane displacement height relationship;
-% s_DH: rmse, r2, F statistic, p value, and error variance of the linear model
-%       (Kimura et al. 1999);
+% z0d : downscaled surface roughness (m);
+% d0d : downscaled zero-plane displacement height (m).
 
-function [z0d,DHd,c_z0,s_z0,c_DH,s_DH]=SurfRough_DS(z0fn,VId,VI,ndv,DHfn)
-%% Check the input
-switch nargin
-  case {1:3}; error('Not enough number of arguments');
+%% Additional note
+% Require read2Dvar.m, and resizeim.m.
 
-  case 4; DH=0;
+function [z0d,d0d]=SurfRough_DS(z0,dn,LM,LCFl,LUT,wkpth,varargin)
+%% Check inputs
+narginchk(6,9);
+ips=inputParser;
+ips.FunctionName=mfilename;
+fprintf('%s received 6 required and %d optional inputs\n',mfilename,length(varargin));
 
-  case 5
-    if ischar(DHfn)
-      DH=double(imread(DHfn));
-    else
-      DH=DHfn;
-    end
-    DH(DH==ndv)=NaN;
+addRequired(ips,'z0',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'z0',1));
+addRequired(ips,'dn',@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'dn',2));
+addRequired(ips,'LM',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'LM',3));
+addRequired(ips,'LCFl',@(x) validateattributes(x,{'cell'},{'nonempty'},mfilename,'LCFl',4));
+addRequired(ips,'LUT',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'LUT',5));
+addRequired(ips,'wkpth',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'wkpth',6));
 
-  otherwise; error('Too many number of arguments');
+addOptional(ips,'VI',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'VI',7));
+addOptional(ips,'VIm',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'VIm',8));
+addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'d0',9));
+
+parse(ips,z0,dn,LM,LCFl,LUT,wkpth,varargin{:});
+VI=ips.Results.VI;
+VIm=ips.Results.VIm;
+d0=ips.Results.d0;
+clear ips varargin
+
+%% Downscaled surface roughness
+ms=datestr(dn,'yyyymmm');
+ms=ms(5:7);
+LUT=readtable(LUT,'Delimiter',',','ReadVariableNames',true);
+k=strcmp(ms,LUT.Properties.VariableNames);
+
+% Surface roughness pattern based on land cover
+Z0d=[];
+for i=1:size(LUT,1)
+  LCF_fd={LCFl{1}(i,:),LCFl{2},LCFl{3},LCFl{4}};
+  lcf=read2Dvar(LCF_fd);
+  Z0d=sum(cat(3,Z0d,lcf*LUT{i,k}),3);
 end
+clear lcf LUT LCF_fd dn
 
-%% Multi-linear regression for z0 vs. LC
-if ischar(z0fn)
-  z0=double(imread(z0fn));
-else
-  z0=z0fn;
-end
-z0(z0==ndv)=NaN;
-clear z0fn DHfn
+% Vegetation index-adjusted surface roughness pattern
+VI=read2Dvar(VI);
+VI(VI<=0)=NaN;
+VIm=read2Dvar(VIm);
+z0d=Z0d.*VI./VIm;
+z0d(isnan(z0d))=Z0d(isnan(z0d));
+clear VI VIm Z0d
 
-k=~isnan(VI) & ~isnan(z0);
-y=z0(k);
-X=[ones(length(y),1) reshape(VI(k),length(y),1)];
-[b,~,res,~,stat]=regress(log(y),X);
-s_z0=[sqrt(sum(res.^2)/(length(res)-length(b))) stat]; % rmse, r2 and others
-c_z0=b';
+% Apply the pattern to downscale surface roughness
+z0=read2Dvar(z0);
 
-% Residual map
-Res=nan(size(VI));
-Res(~isnan(VI))=res;
-id=find(isnan(Res));
-if ~isempty(id)
-  xq=fix((id-1)/size(Res,1))+1;
-  yq=id-size(Res,1)*(xq-1);
-  id=find(~isnan(Res)); % Other pixels
-  x=fix((id-1)/size(Res,1))+1;
-  y=id-size(Res,1)*(x-1);
-  [id,d]=knnsearch([x y],[xq yq],'K',4);
-  d=d.^2;
-  d=d./repmat(sum(d,2),1,size(d,2)); % Weighting factor
-  res=sum(res(id).*d,2);
-  Res(isnan(Res))=res;
-end
+z0u=imresize(z0d,size(z0),'bilinear');
+z0d=z0d+imresize(z0-z0u,size(z0d),'bilinear');
+z0u=imresize(z0,size(z0d),'bilinear');
+z0d(z0d<=0)=z0u(z0d<=0);
 
-%% Find the downscaled surface roughness
-X=[ones(numel(VId(:,:,1)),1) reshape(VId,size(VId,1)*size(VId,2),1)];
-z0d=X*b;
-z0d=reshape(z0d,size(VId,1),size(VId,2));
-z0d=exp(z0d+imresize(Res,size(VId),'bilinear'));
+LM=~isnan(read2Dvar(LM));
+z0d(~LM)=NaN;
+clear LCFl_fd z0u LM
 
 %% Find the downscaled zero-plane displacement height
-if size(DH)==size(z0)
-  z0=z0(~isnan(z0));
-  DH=DH(~isnan(DH));
-  k=DH<quantile(DH,.1);
-  z0(k)=[];
-  DH(k)=[];
+if ~isscalar(d0)
+  d0=read2Dvar(d0);
+  if size(d0)==size(z0)
+    w=d0./z0;
+    d0d=z0d.*imresize(w,size(z0d),'bilinear');
+    d0i=imresize(d0,size(z0d),'bilinear');
+    d0d(isnan(d0d))=d0i(isnan(d0d));
+    d0d(isnan(z0d))=NaN;
+    clear d0i
 
-  [b,~,res,~,stat]=regress(log(z0),[ones(length(DH),1) log(DH)]);
-  s_DH=[sqrt(sum(res.^2)/(length(res)-length(b))) stat]; % rmse, r2 and others
-  c_DH=b';
-
-  DHd=exp(log(z0d)-b(1)/b(2));
-
+  else
+    error('size of z0 and d0 must be the same');
+  end
 else
-  DHd=DH;
-  s_DH=[];
-  c_DH=[];
+  d0d=d0;
 end
 end

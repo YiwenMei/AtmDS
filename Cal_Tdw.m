@@ -1,30 +1,51 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 10/10/2018
+% Last update: 05/10/2019
 
 %% Functionality
-% This function calculate the dew point temperature and specific/relative humidity
-% if relative/specific humidity is available.
+% This function calculates two of the three quantities - dew point temperature,
+%  specific and relative humidity - given the air temperature and pressure and
+%  one of the three.
 
 %% Input
-% Tafn : full name of file store the air temperature;
-% Pafn : full name of file store the air pressure;
-% Humfn: full name of file store the relative/specific humidity;
-% HumT : type of humidity (either "Specific" or "Relative");
-%  ndv : no-data value assigned to the output images.
+% Ta_fd: details of file or workspace variable for air temperature (K);
+% Pa_fd: details of file or workspace variable for air pressure (Pa);
+%  InS : characters specifying the type of the third input (Possible types are
+%        'Dew point', 'Specific', or 'Relative', in K, g/g, or %);
+% In_fd: details of file or workspace variable for the third input.
 
 %% Output
-% Td : dew point temperature (K);
-% Hum: specific/relative humidity (g/g / %).
+% If specific humidity is supplied
+% out1: dew point temperature (K);
+% out2: relative humidity (%);
 
-function [Td,Humo]=Cal_Tdw(Tafn,Pafn,Humfn,HumT,ndv)
+% If relative humidity is supplied
+% out1: dew point temperature (K);
+% out2: specific humidity (g/g);
+
+% If dew point temperature is supplied
+% out1: relative humidity (%);
+% out2: specific humidity (g/g).
+
+%% Additional note
+% Require read2Dvar.m and Magnus_F.m.
+
+function [out1,out2]=Cal_Tdw(Ta_fd,Pa_fd,InS,In_fd)
 %% Check the inputs
-switch nargin
-    case {1,2,3}; error('Not enough number of arguments');
-    case 4; ndv=-999;
-    case 5
-    otherwise; error('Too many number of arguments');
-end
+narginchk(4,4);
+ips=inputParser;
+ips.FunctionName=mfilename;
+fprintf('%s received 4 required inputs\n',mfilename);
+
+addRequired(ips,'Ta_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Ta_fd',1));
+addRequired(ips,'Pa_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Pa_fd',2));
+expInS={'Specific','Relative','Dew Point'};
+msg=cell2mat(cellfun(@(x) [x ', '],expInS,'UniformOutput',false));
+msg=sprintf('Expected InS to be one of the following %s\n',msg);
+addRequired(ips,'InS',@(x) assert(any(strcmp(x,expInS)),msg));
+addRequired(ips,'In_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'In_fd',4));
+parse(ips,Ta_fd,Pa_fd,InS,In_fd);
+clear ips msg
 
 %% Constant
 epsi=.62198; % Ratio of molecular weight of water and dry air
@@ -41,26 +62,15 @@ Bi=22.452;
 Ci=272.55;
 
 %% Read the inputs
-if ischar(Tafn)
-  Ta=double(imread(Tafn));
-else
-  Ta=Tafn;
-end
-if ischar(Pafn)
-  Pa=double(imread(Pafn));
-else
-  Pa=Pafn;
-end
-if ischar(Humfn)
-  Hum=double(imread(Humfn));
-else
-  Hum=Humfn;
-end
-clear Tafn Pafn Humfn
-k=Ta==ndv | Pa==ndv | Hum==ndv;
+Ta=read2Dvar(Ta_fd);
+Pa=read2Dvar(Pa_fd);
+in3=read2Dvar(In_fd);
+clear Ta_fd Pa_fd In_fd
+k=isnan(Ta) | isnan(Pa) | isnan(in3);
 Ta(k)=NaN;
 Pa(k)=NaN;
-Hum(k)=NaN;
+in3(k)=NaN;
+clear k
 
 %% Calculate Tdw
 A=Am*ones(size(Ta));
@@ -74,22 +84,42 @@ C(Ta>5)=Cw;
 C(Ta<-5)=Ci;
 es=Magnus_F(Ta);
 ms=epsi*es./(Pa-es); % saturated mixing ratio
+clear es Aw Ai Bw Bi Cw Ci
 
-switch HumT
+switch InS
   case 'Specific' % If specific humidity is known
-    e=Hum.*Pa./(epsi+(1-epsi)*Hum); % from q=epsi*e/(Pa-(1-epsi)*e)
+    e=in3.*Pa./(epsi+(1-epsi)*in3); % from q=epsi*e/(Pa-(1-epsi)*e), in3 is q
     Td=C.*log(e./A)./(B-log(e./A))-abs0; % from Magnus formula
-  
-    m=Hum./(1-Hum); % mixing ratio
-    Humo=m./ms*100; % Relative humidity
-    Humo(Humo>100)=100;
+    clear e Pa A B C
+    m=in3./(1-in3); % mixing ratio
+    RH=m./ms*100; % Relative humidity
+    clear m ms in3
+    RH(RH>100)=100;
+
+    out1=Td;
+    out2=RH;
 
   case 'Relative' % If relative humidity is known
-    m=Hum.*ms; % mixing ratio
+    m=in3.*ms; % mixing ratio, in3 is RH
     e=m.*Pa./(m+epsi); % from m=epsi*e/(Pa-e)
     Td=C.*log(e./A)./(B-log(e./A))-abs0;
+    clear e Pa ms in3 A B C
+    q=m./(m+1); % Specific humidity
+    clear m
 
-    Humo=m./(m+1); % Specific humidity
-  otherwise; error('Humidity type missing');
+    out1=Td;
+    out2=q;
+
+  case 'Dew Point'
+    e=Magnus_F(in3); % in3 is Td
+    q=epsi*e./(Pa-(1-epsi)*e);
+    clear e in3 Pa A B C
+    m=q./(1-q); % mixing ratio
+    RH=m./ms*100; % Relative humidity
+    clear m ms
+    RH(RH>100)=100;
+
+    out1=RH;
+    out2=q;
 end
 end
