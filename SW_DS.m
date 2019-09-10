@@ -120,13 +120,16 @@ if ~isempty(find(SG>0, 1))
 
 % Cast-shadowing
   MK=read2Dvar(MK);
+  a=El>0; % Fill NaN on the coast and egde of image
+  MK(isnan(MK))=a(isnan(MK));
   Sbi=imresize(Sb,size(MK),'bilinear');
   MK(Sbi>0 & El==0)=1;
+  clear a Sbi
 
 % Adjust for optical depth, illumination and shadow
   Sb=imresize(Sb,size(MK),'bilinear');
   Sbd=Sb.*cosi.*MK.*kt;
-  clear kt cosi Sb MK Sbi
+  clear kt cosi Sb MK
 
 %% Diffuse shortwave radiation
   SVF=read2Dvar(SVF);
