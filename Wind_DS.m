@@ -90,7 +90,7 @@ if ~isscalar(z0)
 
       d0d=read2Dvar(d0d);
       khd=(imresize(Hn,size(z0d),'bilinear')-d0d)./z0d;
-      khd(khd<=0)=1;
+      khd(khd<=0)=exp(1);
       kh=log(khd)./imresize(log(kh),size(z0d),'bilinear');
       kh(kh<0)=0;
       kh=kh/mean(kh(~isnan(kh)));
