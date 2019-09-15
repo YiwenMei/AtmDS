@@ -7,14 +7,13 @@
 % (Liston & Elder 2006).
 
 %% Input
-% Wfn: file full name or array for coarse resolution wind speed (m/s) or a 2-by-1 
-%      cell array storing in cell 1 the file full name or array for coarse resolution
-%      eastward wind (m/s) and cell 2 the northward wind (m/s);
-% Asp: high resolution aspect (deg, N is 0 clock-wise is +);
-% Slp: high resolution slope (deg);
-% Cpl: high resolution plan curvature of terrain;
-% Zd : high resolution elevation (m a.s.l.);
-% ndv: no-data value for the inputs dataset (use only one ndv for all inputs).
+% ws : details of file or workspace variable for original wind speed (m/s);
+% wty: type of ws inputting (possible types are 'UV Wind' or 'Total Wind');
+% Asp: details of file or workspace variable for high resolution aspect (deg,
+%      N is 0 clock-wise is +);
+% Slp: details of file or workspace variable for high resolution slope (deg);
+% Cpl: details of file or workspace variable for high resolution plan curvature
+%      of terrain;
 
 %% Output:
 % wsd: downscaled wind speed (m/s);
