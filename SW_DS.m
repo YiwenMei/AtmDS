@@ -164,7 +164,8 @@ if ~isempty(find(SG>0, 1))
   
   Abd(isnan(Abd))=0; % ndv exist as place holder during the night
   TCF=(1+cosd(Slp))/2-SVF;
-  TCF(TCF<0)=0;
+  TCF=TCF-1.00001*min(TCF(TCF<0));
+%   TCF(TCF<0)=0;
 
   Srd=Abd.*TCF.*(Sdd.*(1-SVF)+Sbd.*cosd(min(90-El,85)));
   clear TCF SVF Abd El k Slp
