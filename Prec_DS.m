@@ -84,7 +84,7 @@ function [O1,O2]=Prec_DS(md,X,Y,pr1,pr2,pr3,pr4,pth)
 if strncmp(md,'Select',6)
 %% Variable selection mode
   I=cell(1,size(X,2));
-  Err=nan(size(X,2),pr2);
+  Err=nan(size(X,2),pr2,3);
 
 % Model fitting
   CT=cell(size(I));
@@ -113,8 +113,10 @@ if strncmp(md,'Select',6)
       end
     end
 
-% MSE of OoB sample
-    Err(nt,:)=oobError(Mdl);
+% MSE of IB, OoB, and Val sample
+    Err(nt,:,1)=error(Mdl.compact,Mdl.X,Mdl.Y,'weights',Mdl.W,'useifort',~Mdl.OOBIndices);
+    Err(nt,:,2)=oobError(Mdl);
+    Err(nt,:,3)=error(Mdl.compact,X(~pr1,:),Y(~pr1,1),'weights',ones(length(find(~pr1)),1)/length(find(~pr1)));
     clear Mdl
 
 % Removal of variable with the lowest PI
