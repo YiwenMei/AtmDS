@@ -9,7 +9,7 @@
 %  mean distance of all wet pixels that are closest to the same dry pixel.
 
 %% Input
-%  p : details of the precipitation file;
+% p: details of file or workspace variable for precipitation;
 
 % pct : a percentage of precipitation value where grid cell with p value less
 %       than this is defined as dry grid cell;
@@ -21,7 +21,7 @@
 %% Output
 % Pmk: precipitation mask (0 -> dry pixel, 1 -> wet pixel);
 
-% df : distance to the closest dry pixel (i.e. dry drift, m).
+% df: distance to the closest dry pixel.
 
 %% Additional note
 % Require read2Dvar.m.
