@@ -20,6 +20,7 @@
 
 %% Output
 % Pmk: precipitation mask (0 -> dry pixel, 1 -> wet pixel);
+
 % df : distance to the closest dry pixel (i.e. dry drift, m).
 
 %% Additional note
@@ -55,7 +56,7 @@ end
 Pmk=nan(size(p));
 Pmk(p>pt)=1;
 Pmk(p<=pt)=0;
-claer p
+clear p
 
 %% Relative closest distance
 if Dflg
