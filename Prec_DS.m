@@ -84,7 +84,7 @@ function [O1,O2]=Prec_DS(md,X,Y,pr1,pr2,pr3,pr4,pth)
 if strncmp(md,'Select',6)
 %% Variable selection mode
   I=cell(1,size(X,2));
-  Err=nan(size(X,2),pr2,3);
+  Err=nan(size(X,2)+1,pr2,3);
 
 % Model fitting
   CT=cell(size(I));
@@ -117,7 +117,9 @@ if strncmp(md,'Select',6)
     Err(nt,:,1)=error(Mdl.compact,Mdl.X,Mdl.Y,'weights',Mdl.W,'useifort',~Mdl.OOBIndices);
     Err(nt,:,2)=oobError(Mdl);
     Err(nt,:,3)=error(Mdl.compact,X(~pr1,:),Y(~pr1,1),'weights',ones(length(find(~pr1)),1)/length(find(~pr1)));
-    clear Mdl
+    if nt~=length(I)
+      clear Mdl
+    end
 
 % Removal of variable with the lowest PI
     I{nt}=X.Properties.VariableNames(oim);
@@ -125,9 +127,20 @@ if strncmp(md,'Select',6)
 
 % Outputs
   end
+  y_m=nan(pr2,3,2);
+  for t=1:pr2
+    y_m(t,:,:)=[sum(Mdl.Y(~Mdl.OOBIndices(:,t))) length(find(~Mdl.OOBIndices(:,t)));...
+        sum(Mdl.Y(Mdl.OOBIndices(:,t))) length(find(Mdl.OOBIndices(:,t)));...
+        sum(Y{~pr1,1}) length(find(~pr1))];
+  end
+  y_m=cumsum(y_m,1);
+  y_m(:,:,2)=1./y_m(:,:,2);
+  y_m=prod(y_m,3);
+
   O1.PII=PII; % Predictor importance index
   O1.I=I; % Predictor removed per round
-  O2=Err; % MSE of model
+  O2.MSE=Err; % MSE of model
+  O2.y_m=y_m; % Mean of y
 
 elseif strncmp(md,'Evaluate',8)
 %% Function evaluation mode
@@ -141,11 +154,12 @@ elseif strncmp(md,'Evaluate',8)
     end
 
 % Miss Classification Rate
-    O1.ib=error(Mdl.compact,Mdl.X,Mdl.Y,'weights',Mdl.W,'useifort',~Mdl.OOBIndices);
+    O1.MSE=nan(pr2,3);
+    O1.MSE(:,1)=error(Mdl.compact,Mdl.X,Mdl.Y,'weights',Mdl.W,'useifort',~Mdl.OOBIndices);
     Nib=length(find(~Mdl.OOBIndices))/pr2;
-    O1.oob=oobError(Mdl);
+    O1.MSE(:,2)=oobError(Mdl);
     Noob=length(find(Mdl.OOBIndices))/pr2;
-    O1.val=error(Mdl.compact,X(~pr1,:),Y(~pr1,1),'weights',ones(length(find(~pr1)),1)/length(find(~pr1)));
+    O1.MSE(:,3)=error(Mdl.compact,X(~pr1,:),Y(~pr1,1),'weights',ones(length(find(~pr1)),1)/length(find(~pr1)));
     Nval=length(find(~pr1));
     O1.ss=[Nib Noob Nval];
 
@@ -154,10 +168,10 @@ elseif strncmp(md,'Evaluate',8)
 % Situations of contingency
     Yh=categorical(Mdl.predict(X));
     O2=nan(size(Y));
-    O2(Yh=='0' & Y{:,1}=='1')=1; % Missing (M)
-    O2(Yh=='0' & Y{:,1}=='0')=2; % Correct Negative (N)
-    O2(Yh=='1' & Y{:,1}=='0')=3; % False Alarm (F)
-    O2(Yh=='1' & Y{:,1}=='1')=4; % Hit (H)
+    O2(Yh=='0' & Y=='1')=1; % Missing (M)
+    O2(Yh=='0' & Y=='0')=2; % Correct Negative (N)
+    O2(Yh=='1' & Y=='0')=3; % False Alarm (F)
+    O2(Yh=='1' & Y=='1')=4; % Hit (H)
 
   elseif contains(md,'rate')
 % Model fitting for precipitation rate
@@ -169,13 +183,25 @@ elseif strncmp(md,'Evaluate',8)
     end
 
 % Mean Squared Error
-    O1.ib=error(Mdl.compact,Mdl.X,Mdl.Y,'weights',Mdl.W,'useifort',~Mdl.OOBIndices);
+    O1.MSE=nan(pr2,3);
+    O1.MSE(:,1)=error(Mdl.compact,Mdl.X,Mdl.Y,'weights',Mdl.W,'useifort',~Mdl.OOBIndices);
     Nib=length(find(~Mdl.OOBIndices))/pr2;
-    O1.oob=oobError(Mdl);
+    O1.MSE(:,2)=oobError(Mdl);
     Noob=length(find(Mdl.OOBIndices))/pr2;
-    O1.val=error(Mdl.compact,X(~pr1,:),Y(~pr1,1),'weights',ones(length(find(~pr1)),1)/length(find(~pr1)));
+    O1.MSE(:,3)=error(Mdl.compact,X(~pr1,:),Y(~pr1,1),'weights',ones(length(find(~pr1)),1)/length(find(~pr1)));
     Nval=length(find(~pr1));
     O1.ss=[Nib Noob Nval];
+
+    y_m=nan(pr2,3,2);
+    for t=1:pr2
+      y_m(t,:,:)=[sum(Mdl.Y(~Mdl.OOBIndices(:,t))) length(find(~Mdl.OOBIndices(:,t)));...
+          sum(Mdl.Y(Mdl.OOBIndices(:,t))) length(find(Mdl.OOBIndices(:,t)));...
+          sum(Y{~pr1,1}) length(find(~pr1))];
+    end
+    y_m=cumsum(y_m,1);
+    y_m(:,:,2)=1./y_m(:,:,2);
+    y_m=prod(y_m,3);
+    O1.y_m=y_m;
 
     Mdl=compact(Mdl);
 
