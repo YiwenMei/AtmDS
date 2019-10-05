@@ -229,15 +229,12 @@ elseif strncmp(md,'Predict',7)
 % Prediction of precipitation rate
     Pr=Y.predict(X);
     O1=nan(size(pr2));
-    O1(pr2==1)=Pr;
+    O1(pr2==1)=Pr; % no adjustment of residual
 
-    if isempty(pr1) % no adjustment of residual
-      O1=exp(O1);
-
-    else % adjust for residual
+    if ~isempty(pr1) % adjust for residual
       id=find(isnan(pr1)); % Pixels with NaN
-      if ~isempty(id)
 % Fill the NaN pixels
+      if ~isempty(id)
         xq=fix((id-1)/size(pr1,1))+1;
         yq=id-size(pr1,1)*(xq-1);
         id=find(~isnan(pr1)); % Other pixels
@@ -252,7 +249,7 @@ elseif strncmp(md,'Predict',7)
       end
 
       pr1=imresize(pr1,size(O1),'bilinear');
-      O1=exp(O1+pr1);
+      O1=O1+pr1;
     end
 
 % Apply the mask
