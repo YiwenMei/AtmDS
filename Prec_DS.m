@@ -122,7 +122,7 @@ if strncmp(md,'Select',6)
     end
 
 % Removal of variable with the lowest PI
-    I{nt}=X.Properties.VariableNames(oim);
+    I(nt)=X.Properties.VariableNames(oim);
     X(:,oim)=[];
 
 % Outputs
@@ -168,6 +168,7 @@ elseif strncmp(md,'Evaluate',8)
 % Situations of contingency
     Yh=categorical(Mdl.predict(X));
     O2=nan(size(Y));
+    Y=table2array(Y);
     O2(Yh=='0' & Y=='1')=1; % Missing (M)
     O2(Yh=='0' & Y=='0')=2; % Correct Negative (N)
     O2(Yh=='1' & Y=='0')=3; % False Alarm (F)
