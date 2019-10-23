@@ -10,17 +10,18 @@
 %  by its abient terrain.
 
 %% Input:
-%  X : details of file or workspace variable for the X coordinate of study domain;
-%  Y : details of file or workspace variable for the Y coordinate of study domain;
-% Lat: details of file or workspace variable for latitude of the study domain
-%      (deg North);
-%  Z : details of file or workspace variable for elevation of the domain (m asl);
+%  X : spatial map class (V2DCls.m) object or workspace variable for the X coordinate
+%       of study domain;
+%  Y : V2DCls.m object or workspace variable for the Y coordinate of study domain;
+% Lat: V2DCls.m object or workspace variable for latitude of the study domain
+%       (deg North);
+%  Z : V2DCls.m object or workspace variable for elevation of the domain (m asl);
 % Az : solar azimuth for the study domain (deg, N is 0 clock's wise is +; can
-%      be any dimension representing the Az of the study domain);
+%       be any dimension representing the Az of the study domain);
 % El : solar altitude for the study domain (deg, can be any dimension);
 
 % rm: maximum search radius (m, unset to evoke the built-in algorithm calculating
-%     location specific rm).
+%      location specific rm).
 
 %% Output:
 % Hrz: horizon of terrain at the direction of solar azimuth (m);
@@ -31,29 +32,28 @@
 % Please use a Catesian coordinate for the calculation;
 % Bilinear interpolation (aggregation) is used to downscale (upscale) Az/El if
 %  the dimensions are different than Z;
-% Require read2Dvar.m.
+% Require V2DCls.m.
 
 function [Hrz,a_h,Mk]=CastShadow(X,Y,Lat,Z,Az,El,varargin)
 %% Check the inputs
 narginchk(6,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
-fprintf('%s received 6 required and %d optional inputs\n',mfilename,length(varargin));
 
-addRequired(ips,'X',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'X',1));
-addRequired(ips,'Y',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Y',2));
-addRequired(ips,'Lat',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Lat',3));
-addRequired(ips,'Z',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Z',4));
+addRequired(ips,'X',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'X'));
+addRequired(ips,'Y',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Y'));
+addRequired(ips,'Lat',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Lat'));
+addRequired(ips,'Z',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Z'));
 addRequired(ips,'Az',@(x) isempty(find(x<0 | x>360, 1)));
 addRequired(ips,'El',@(x) isempty(find(x>90, 1)));
 
-addOptional(ips,'rm',[],@(x) validateattributes(x,{'double'},{'>',0},mfilename,'rm',7));
+addOptional(ips,'rm',[],@(x) validateattributes(x,{'double'},{'>',0},mfilename,'rm'));
 parse(ips,X,Y,Lat,Z,Az,El,varargin{:});
 rm=ips.Results.rm;
 clear ips varargin
 
 %% Initialize the outputs
-Z=read2Dvar(Z);
+Z=readCls(Z);
 
 a_h=nan(size(Z));
 a_h(~isnan(Z))=0;
@@ -70,8 +70,8 @@ if ~isempty(find(~k, 1))
   Az=Az(~k);
   El=El(~k);
 
-  X=read2Dvar(X);
-  Y=read2Dvar(Y);
+  X=readCls(X);
+  Y=readCls(Y);
   if length(unique(abs(diff(X,[],2))))~=1 || length(unique(abs(diff(Y,[],1))))~=1
     error('Both X and Y must be monotonic with constant increments')
   else
@@ -89,7 +89,7 @@ if ~isempty(find(~k, 1))
   Y=Y(~k);
 
 % Earth radius changes with latitude
-  Lat=read2Dvar(Lat);
+  Lat=readCls(Lat);
   Lat=Lat(~k);
 
   r1=6378137;
@@ -122,7 +122,7 @@ if ~isempty(find(~k, 1))
     a_h=nan(size(Zf));
     D=nan(size(Zf));
     a_hrz_m=nan(size(Zf));
-    k1=isnan(N); % Pick out grid points with horizon angle greater than the maximum possible horizon angle
+    k1=isnan(N); % Remove grids with horizon angle greater than the maximum possible horizon angle
 
 % Progress indication
 %     if rem(n,10)==0 && n~=max(N)
@@ -181,5 +181,13 @@ if ~isempty(find(~k, 1))
   Hrz(k)=hrz;
   delta=heaviside(El-a_Hrz); % Shadow mask
   Mk(k)=delta;
+end
+end
+
+function v2d=readCls(vb)
+if isa(vb,'V2DCls')
+  v2d=vb.readCls;
+else
+  v2d=vb;
 end
 end

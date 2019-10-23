@@ -7,13 +7,14 @@
 %  and relative humidity are calculated based on the results.
 
 %% Input
-% Ta_fd : details of file or workspace variable for original air temperature (K);
-% LR_fd : details of file or workspace variable for air temperature lapse rate (K/m);
-% Td_fd : details of file or workspace variable for original dew point temperature (K);
-% LRd_fd: details of file or workspace variable for dew point lapse rate (K/m);
-% Pa_fd : details of file or workspace variable for original air pressure (Pa);
-%  Z_fd : details of file or workspace variable for coarse resolution elevation (m);
-% Zd_fd : details of file or workspace variable for high resolution elevation (m);
+% Ta : spatial map class (V2DCls.m) object or workspace variable for air temperature
+%       (K);
+% LR : V2DCls.m object or workspace variable for air temperature lapse rate (K/m);
+% Td : V2DCls.m object or workspace variable for original dew point temperature (K);
+% LRd: V2DCls.m object or workspace variable for dew point lapse rate (K/m);
+% Pa : V2DCls.m object or workspace variable for original air pressure (Pa);
+%  Z : V2DCls.m object or workspace variable for coarse resolution elevation (m);
+% Zd : V2DCls.m object or workspace variable for high resolution elevation (m);
 
 %% Output
 % Tad: downscaled air temperature (K);
@@ -23,23 +24,22 @@
 % RHd: downscaled relative humidity (%).
 
 %% Additional note
-% Require read2Dvar.m, Magnus_F.m, and Cal_dew.m.
+% Require V2DCls.m and Cal_dew.m.
 
-function [Tad,Tdd,Pad,qd,RHd]=AtmFrc_DS(Ta_fd,LR_fd,Td_fd,LRd_fd,Pa_fd,Z_fd,Zd_fd)
+function [Tad,Tdd,Pad,qd,RHd]=AtmFrc_DS(Ta,LR,Td,LRd,Pa,Z,Zd)
 %% Check the inputs
 narginchk(7,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
-fprintf('%s received 7 required inputs\n',mfilename);
 
-addRequired(ips,'Ta_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Ta_fd',1));
-addRequired(ips,'LR_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'LR_fd',2));
-addRequired(ips,'Td_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Td_fd',3));
-addRequired(ips,'LRd_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'LRd_fd',4));
-addRequired(ips,'Pa_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Pa_fd',5));
-addRequired(ips,'Z_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Z_fd',6));
-addRequired(ips,'Zd_fd',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Zd_fd',7));
-parse(ips,Ta_fd,LR_fd,Td_fd,LRd_fd,Pa_fd,Z_fd,Zd_fd);
+addRequired(ips,'Ta',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Ta'));
+addRequired(ips,'LR',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'LR'));
+addRequired(ips,'Td',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Td'));
+addRequired(ips,'LRd',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'LRd'));
+addRequired(ips,'Pa',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pa'));
+addRequired(ips,'Z',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Z'));
+addRequired(ips,'Zd',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Zd'));
+parse(ips,Ta,LR,Td,LRd,Pa,Z,Zd);
 clear ips
 
 %% Constant
@@ -47,14 +47,12 @@ R=287.0; % Ideal gass constant J/kg*K
 g=9.81; % Gravitational acceleration m/s2
 
 %% Read the inputs
-FunName=dbstack;
-Z=read2Dvar(Z_fd,FunName);
-LR=read2Dvar(LR_fd,FunName);
-LRd=read2Dvar(LRd_fd,FunName);
-Ta=read2Dvar(Ta_fd,FunName);
-Td=read2Dvar(Td_fd,FunName);
-Pa=read2Dvar(Pa_fd,FunName);
-clear Ta_fd Td_fd Pa_fd Z_fd LR_fd LRd_fd
+Z=readCls(Z);
+LR=readCls(LR);
+LRd=readCls(LRd);
+Ta=readCls(Ta);
+Td=readCls(Td);
+Pa=readCls(Pa);
 
 k=isnan(Ta) | isnan(Td) | isnan(Pa) | isnan(Z) | isnan(LR) | isnan(LRd);
 Ta(k)=NaN;
@@ -67,8 +65,7 @@ LRd(k)=NaN;
 
 %% Downscaling
 % Air temperature (K)
-Zd=read2Dvar(Zd_fd,FunName);
-clear Zd_fd
+Zd=readCls(Zd);
 
 dZ=Zd-imresize(Z,size(Zd),'bilinear');
 clear Zd Z
@@ -87,4 +84,12 @@ Tdd(Tdd>Tad)=Tad(Tdd>Tad); % Set Td > Ta to Ta
 % Humidity
 [RHd,qd]=Cal_Tdw(Tad,Pad,'Dew Point',Tdd);
 RHd(RHd>100)=100;
+end
+
+function v2d=readCls(vb)
+if isa(vb,'V2DCls')
+  v2d=vb.readCls;
+else
+  v2d=vb;
+end
 end

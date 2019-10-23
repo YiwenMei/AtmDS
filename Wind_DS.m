@@ -6,47 +6,48 @@
 % This function downscales wind speed assuming log-wind profile.
 
 %% Input
-% ws : details of file or workspace variable for original wind speed (m/s);
-% wty: type of ws inputting (possible types are 'UV Wind' or 'Total Wind');
-% Hm : details of file or workspace variable for measurement height of original
-%      wind speed (m ag);
-% Hn : details of file or workspace variable for new measurement height of outputted
-%      wind speed (m ag);
+% ws: space-time wind class (Wind2DTCls.m) object or workspace variable for total
+%      or component wind (m/s);
+% Hm: spatial variable class (V2DCls.m) object or workspace variable for measurement
+%      height of wind (m ag);
+% Hn: V2DCls.m object or workspace variable for new measurement height of outputted
+%      wind (m ag);
 
-% z0 : details of file or workspace variable for original surface roughness (m);
-% z0d: details of file or workspace variable for downscaled surface roughness (m);
-% d0 : details of file or workspace variable for original zero-plane displacement
-%      height (m);
-% d0d: details of file or workspace variable for downscaled zero-plane displacement
-%      height (m).
+% z0 : V2DCls.m object or workspace variable for original surface roughness (m ag);
+% z0d: V2DCls.m object or workspace variable for downscaled surface roughness
+%       (m ag);
+% d0 : V2DCls.m object or workspace variable for original zero-plane displacement
+%       height (m ag);
+% d0d: V2DCls.m object or workspace variable for downscaled zero-plane displacement
+%       height (m ag).
 
 %% Output
 % wsd: downscaled wind speed (m/s);
+
 % wdd: downscaled wind direction (E is 0, counter-clock's wise is +);
 % ud : downscaled eastward wind (m/s);
 % vd : downscaled northward wind (m/s).
 
 %% Additional note
-% Require read2Dvar.m.
+% Require V2DCls.m.
 
-function [wsd,wdd,ud,vd]=Wind_DS(ws,wty,Hm,Hn,varargin)
+function [wsd,wdd,ud,vd]=Wind_DS(ws,Hm,Hn,varargin)
 %% Check inputs
-narginchk(4,8);
+narginchk(3,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
-fprintf('%s received 4 required and %d optional inputs\n',mfilename,length(varargin));
 
-addRequired(ips,'ws',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'ws',1));
-addRequired(ips,'wty',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'wty',2));
-addRequired(ips,'Hm',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Hm',3));
-addRequired(ips,'Hn',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'Hn',4));
+addRequired(ips,'ws',@(x) validateattributes(x,{'double','V2DCls','Wind2DTCls'},{'nonempty'},...
+    mfilename,'ws'));
+addRequired(ips,'Hm',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Hm'));
+addRequired(ips,'Hn',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Hn'));
 
-addOptional(ips,'z0',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'z0',5));
-addOptional(ips,'z0d',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'z0d',6));
-addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'d0',7));
-addOptional(ips,'d0d',0,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'d0d',8));
+addOptional(ips,'z0',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'z0'));
+addOptional(ips,'z0d',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'z0d'));
+addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'d0'));
+addOptional(ips,'d0d',0,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'d0d'));
 
-parse(ips,ws,wty,Hm,Hn,varargin{:});
+parse(ips,ws,Hm,Hn,varargin{:});
 z0=ips.Results.z0;
 z0d=ips.Results.z0d;
 d0=ips.Results.d0;
@@ -54,28 +55,28 @@ d0d=ips.Results.d0d;
 clear ips varargin
 
 %% Read the wind records
+if isa(ws,'Wind2DTCls')
+  wty='Component';
+else
+  wty='Total';
+end
 switch wty
-  case 'UV Wind' % U and V wind
-    u=read2Dvar(ws(1,:));
-    v=read2Dvar(ws(2,:));
+  case 'Component' % U and V wind
+    [ws,wd,~,~]=ws.readCls(1);
+    wd(wd<0)=wd(wd<0)+360; % E is 0, counter-clock's wise is +
 
-    ws=hypot(u,v);
-    wd=atan2d(v,u); % E is 0, counter-clock's wise is +
-    wd(wd<0)=wd(wd<0)+360;
-
-  case 'Total Wind' % Total wind
-    ws=read2Dvar(ws);
+  case 'Total' % Total wind
+    ws=readCls(ws);
 end
 
-Hm=read2Dvar(Hm);
-Hn=read2Dvar(Hn);
-clear u v
+Hm=readCls(Hm);
+Hn=readCls(Hn);
 
 %% Downscaling of wind speed/direction
 if ~isscalar(z0)
 % Ratio of shear velocity
-  z0=read2Dvar(z0);
-  z0d=read2Dvar(z0d);
+  z0=readCls(z0);
+  z0d=readCls(z0d);
 
   if isempty(find(z0<=0, 1)) || isempty(find(z0d<=0, 1))
     z0i=imresize(z0,size(z0d),'bilinear');
@@ -83,12 +84,12 @@ if ~isscalar(z0)
     clear z0i
 
 % Ratio of height
-    d0=read2Dvar(d0);
+    d0=readCls(d0);
     kh=(Hm-d0)./z0;
     if isempty(find(kh<=0 & ws>0, 1))
       kh(kh<=0)=exp(1);
 
-      d0d=read2Dvar(d0d);
+      d0d=readCls(d0d);
       khd=(imresize(Hn,size(z0d),'bilinear')-d0d)./z0d;
       khd(khd<=0)=exp(1);
       kh=log(khd)./imresize(log(kh),size(z0d),'bilinear');
@@ -113,15 +114,24 @@ clear kh Hn Hm ws
 
 %% Output wind speed/direction
 switch wty
-  case 'UV Wind' % U and V wind
+  case 'Component' % U and V wind
     vd=wsd.*imresize(sind(wd),size(wsd),'bilinear');
     ud=wsd.*imresize(cosd(wd),size(wsd),'bilinear');
     wdd=atan2d(vd,ud); % E is 0, counter-clock's wise is +
     wdd(wdd<0)=wdd(wdd<0)+360;
 
-  case 'Total Wind'
+  case 'Total'
     vd=[];
     ud=[];
     wdd=[];
+end
+end
+
+function [v1,v2]=readCls(vb)
+if isa(vb,'V2DCls')
+  [v1,v2]=vb.readCls;
+else
+  v1=vb;
+  v2=[];
 end
 end

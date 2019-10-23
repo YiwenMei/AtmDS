@@ -30,25 +30,25 @@
 %% Additional note
 % Require read2Dvar.m, and resizeim.m.
 
-function [z0d,d0d]=SurfRough_DS(z0,dn,LM,LCFl,LUT,wkpth,varargin)
+function [z0d,d0d]=SurfRough_DS(z0,dn,LM,LC,LUT,wkpth,varargin)
 %% Check inputs
 narginchk(6,9);
 ips=inputParser;
 ips.FunctionName=mfilename;
-fprintf('%s received 6 required and %d optional inputs\n',mfilename,length(varargin));
 
-addRequired(ips,'z0',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'z0',1));
-addRequired(ips,'dn',@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'dn',2));
-addRequired(ips,'LM',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'LM',3));
-addRequired(ips,'LCFl',@(x) validateattributes(x,{'cell'},{'nonempty'},mfilename,'LCFl',4));
-addRequired(ips,'LUT',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'LUT',5));
-addRequired(ips,'wkpth',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'wkpth',6));
+addRequired(ips,'z0',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'z0'));
+addRequired(ips,'dn',@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'dn'));
+addRequired(ips,'LM',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'LM'));
+addRequired(ips,'LC',@(x) validateattributes(x,{'V2DTCls'},{'nonempty'},mfilename,'LC'));
+addRequired(ips,'LUT',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'LUT'));
+addRequired(ips,'wkpth',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'wkpth'));
 
-addOptional(ips,'VI',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'VI',7));
-addOptional(ips,'VIm',1,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'VIm',8));
-addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'d0',9));
+addOptional(ips,'VI',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'VI'));
+addOptional(ips,'VIm',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,...
+    'VIm'));
+addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'d0'));
 
-parse(ips,z0,dn,LM,LCFl,LUT,wkpth,varargin{:});
+parse(ips,z0,dn,LM,LC,LUT,wkpth,varargin{:});
 VI=ips.Results.VI;
 VIm=ips.Results.VIm;
 d0=ips.Results.d0;
@@ -63,35 +63,34 @@ k=strcmp(ms,LUT.Properties.VariableNames);
 % Surface roughness pattern based on land cover
 Z0d=[];
 for i=1:size(LUT,1)
-  LCF_fd={LCFl{1}(i,:),LCFl{2},LCFl{3},LCFl{4}};
-  lcf=read2Dvar(LCF_fd);
+  lcf=LC.readCls(i);
   Z0d=sum(cat(3,Z0d,lcf*LUT{i,k}),3);
 end
-clear lcf LUT LCF_fd dn
+clear lcf LUT dn
 
 % Vegetation index-adjusted surface roughness pattern
-VI=read2Dvar(VI);
+VI=readCls(VI);
 VI(VI<=0)=NaN;
-VIm=read2Dvar(VIm);
+VIm=readCls(VIm);
 z0d=Z0d.*VI./VIm;
 z0d(isnan(z0d))=Z0d(isnan(z0d));
 clear VI VIm Z0d
 
 % Apply the pattern to downscale surface roughness
-z0=read2Dvar(z0);
+z0=readCls(z0);
 
 z0u=imresize(z0d,size(z0),'bilinear');
 z0d=z0d+imresize(z0-z0u,size(z0d),'bilinear');
 z0u=imresize(z0,size(z0d),'bilinear');
 z0d(z0d<=0)=z0u(z0d<=0);
 
-LM=~isnan(read2Dvar(LM));
+LM=~isnan(readCls(LM));
 z0d(~LM)=NaN;
-clear LCFl_fd z0u LM
+clear z0u LM
 
 %% Find the downscaled zero-plane displacement height
 if ~isscalar(d0)
-  d0=read2Dvar(d0);
+  d0=readCls(d0);
   if size(d0)==size(z0)
     w=d0./z0;
     d0d=z0d.*imresize(w,size(z0d),'bilinear');
@@ -105,5 +104,13 @@ if ~isscalar(d0)
   end
 else
   d0d=d0;
+end
+end
+
+function v2d=readCls(vb)
+if isa(vb,'V2DCls')
+  v2d=vb.readCls;
+else
+  v2d=vb;
 end
 end
