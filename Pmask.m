@@ -3,13 +3,13 @@
 % Last update: 8/23/2019
 
 %% Functionality
-% This function compute the precipitation mask with a user-provided quantile
+% This function computes the precipitation mask with a user-provided quantile
 %  and calculate the "dry drift" of precipitation (optional).
-%  Dry drift is the distance to its closest dry pixel of a wet pixel over the
+% Dry drift is the distance to its closest dry pixel of a wet pixel over the
 %  mean distance of all wet pixels that are closest to the same dry pixel.
 
 %% Input
-% p: details of file or workspace variable for precipitation;
+% p: spatial map class (V2DCls.m) object or workspace variable for precipitation;
 
 % pct : a percentage of precipitation value where grid cell with p value less
 %       than this is defined as dry grid cell;
@@ -23,22 +23,18 @@
 
 % df: distance to the closest dry pixel.
 
-%% Additional note
-% Require read2Dvar.m.
-
 function [Pmk,df]=Pmask(p,varargin)
 %% Check inputs
 narginchk(1,5);
 ips=inputParser;
 ips.FunctionName=mfilename;
-fprintf('%s received 1 required and %d optional inputs\n',mfilename,length(varargin));
 
-addRequired(ips,'p',@(x) validateattributes(x,{'double','cell'},{'nonempty'},mfilename,'p',1));
+addRequired(ips,'p',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'p'));
 
-addOptional(ips,'pct',0,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'pct',2));
-addOptional(ips,'Dflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},mfilename,'Dflg',3));
-addOptional(ips,'X',[],@(x) validateattributes(x,{'double'},{},mfilename,'X',4));
-addOptional(ips,'Y',[],@(x) validateattributes(x,{'double'},{},mfilename,'Y',5));
+addOptional(ips,'pct',0,@(x) validateattributes(x,{'double'},{'nonempty'},mfilename,'pct'));
+addOptional(ips,'Dflg',false,@(x) validateattributes(x,{'logical'},{'nonempty'},mfilename,'Dflg'));
+addOptional(ips,'X',[],@(x) validateattributes(x,{'double'},{},mfilename,'X'));
+addOptional(ips,'Y',[],@(x) validateattributes(x,{'double'},{},mfilename,'Y'));
 
 parse(ips,p,varargin{:});
 pct=ips.Results.pct;
@@ -48,7 +44,7 @@ Y=ips.Results.Y;
 clear ips varargin
 
 %% Precipitation mask
-p=read2Dvar(p);
+p=readCls(p);
 if pct~=0
   pt=quantile(reshape(p,numel(p),1),pct); % Define precipitation threshold
 end
@@ -85,5 +81,13 @@ if Dflg
   df=nan(size(p));
   df(Pmk==1)=ds;
   df(Pmk==0)=0;
+end
+end
+
+function v2d=readCls(vb)
+if isa(vb,'V2DCls')
+  v2d=vb.readCls;
+else
+  v2d=vb;
 end
 end
