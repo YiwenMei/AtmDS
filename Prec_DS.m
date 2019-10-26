@@ -84,7 +84,7 @@ function [O1,O2]=Prec_DS(md,X,Y,pr1,pr2,pr3,pr4,pth)
 if strncmp(md,'Select',6)
 %% Variable selection mode
   I=cell(1,size(X,2));
-  Err=nan(size(X,2)+1,pr2,3);
+  Err=nan(size(X,2),pr2,3);
 
 % Model fitting
   CT=cell(size(I));
@@ -127,20 +127,22 @@ if strncmp(md,'Select',6)
 
 % Outputs
   end
-  y_m=nan(pr2,3,2);
+
+  y_ib=[];
+  y_oob=[];
+  ysts=nan(pr2,4);
   for t=1:pr2
-    y_m(t,:,:)=[sum(Mdl.Y(~Mdl.OOBIndices(:,t))) length(find(~Mdl.OOBIndices(:,t)));...
-        sum(Mdl.Y(Mdl.OOBIndices(:,t))) length(find(Mdl.OOBIndices(:,t)));...
-        sum(Y{~pr1,1}) length(find(~pr1))];
+    y_ib=[y_ib;Mdl.Y(~Mdl.OOBIndices(:,t))];
+    y_oob=[y_oob;Mdl.Y(Mdl.OOBIndices(:,t))];
+    ysts(t,:)=[mean(y_ib) var(y_ib) mean(y_oob) var(y_oob)];
   end
-  y_m=cumsum(y_m,1);
-  y_m(:,:,2)=1./y_m(:,:,2);
-  y_m=prod(y_m,3);
+  ysts=[ysts repelem([mean(Y{~pr1,1}) var(Y{~pr1,1})],pr2,1)];
+  ysts=array2table(ysts,'VariableNames',{'mean_yib','var_yib','mean_yoob','var_yoob','mean_yval','var_yval'});
 
   O1.PII=PII; % Predictor importance index
   O1.I=I; % Predictor removed per round
   O2.MSE=Err; % MSE of model
-  O2.y_m=y_m; % Mean of y
+  O2.ysts=ysts; % statistics of y
 
 elseif strncmp(md,'Evaluate',8)
 %% Function evaluation mode
@@ -193,16 +195,17 @@ elseif strncmp(md,'Evaluate',8)
     Nval=length(find(~pr1));
     O1.ss=[Nib Noob Nval];
 
-    y_m=nan(pr2,3,2);
+    y_ib=[];
+    y_oob=[];
+    ysts=nan(pr2,4);
     for t=1:pr2
-      y_m(t,:,:)=[sum(Mdl.Y(~Mdl.OOBIndices(:,t))) length(find(~Mdl.OOBIndices(:,t)));...
-          sum(Mdl.Y(Mdl.OOBIndices(:,t))) length(find(Mdl.OOBIndices(:,t)));...
-          sum(Y{~pr1,1}) length(find(~pr1))];
+      y_ib=[y_ib;Mdl.Y(~Mdl.OOBIndices(:,t))];
+      y_oob=[y_oob;Mdl.Y(Mdl.OOBIndices(:,t))];
+      ysts(t,:)=[mean(y_ib) var(y_ib) mean(y_oob) var(y_oob)];
     end
-    y_m=cumsum(y_m,1);
-    y_m(:,:,2)=1./y_m(:,:,2);
-    y_m=prod(y_m,3);
-    O1.y_m=y_m;
+    ysts=[ysts repelem([mean(Y{~pr1,1}) var(Y{~pr1,1})],pr2,1)];
+    ysts=array2table(ysts,'VariableNames',{'mean_yib','var_yib','mean_yoob','var_yoob','mean_yval','var_yval'});
+    O1.ysts=ysts;
 
     Mdl=compact(Mdl);
 
