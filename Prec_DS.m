@@ -257,7 +257,7 @@ elseif strncmp(md,'Predict',7)
     end
 
 % Apply the mask
-    O1(pr2==0)=0;
+    O1(pr2==0)=NaN;
   end
   O2=[];
 end
