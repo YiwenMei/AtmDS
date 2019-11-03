@@ -14,7 +14,6 @@
 % LCFl : details of file list of the land cover classes fraction;
 %  LUT : file name of the z0 look-up-table (use ',' as separator and '.dat' as
 %        file extension);
-% wkpth: working directory of the function;
 
 % VI : details of file or workspace variable for the high resolution vegetation
 %      index of the time step;
@@ -30,9 +29,9 @@
 %% Additional note
 % Require read2Dvar.m, and resizeim.m.
 
-function [z0d,d0d]=SurfRough_DS(z0,dn,LM,LC,LUT,wkpth,varargin)
+function [z0d,d0d]=SurfRough_DS(z0,dn,LM,LC,LUT,varargin)
 %% Check inputs
-narginchk(6,9);
+narginchk(5,8);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
@@ -41,14 +40,13 @@ addRequired(ips,'dn',@(x) validateattributes(x,{'double'},{'scalar'},mfilename,'
 addRequired(ips,'LM',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'LM'));
 addRequired(ips,'LC',@(x) validateattributes(x,{'V2DTCls'},{'nonempty'},mfilename,'LC'));
 addRequired(ips,'LUT',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'LUT'));
-addRequired(ips,'wkpth',@(x) validateattributes(x,{'char'},{'nonempty'},mfilename,'wkpth'));
 
 addOptional(ips,'VI',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'VI'));
 addOptional(ips,'VIm',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,...
     'VIm'));
-addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'d0'));
+addOptional(ips,'d0',[],@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'d0'));
 
-parse(ips,z0,dn,LM,LC,LUT,wkpth,varargin{:});
+parse(ips,z0,dn,LM,LC,LUT,varargin{:});
 VI=ips.Results.VI;
 VIm=ips.Results.VIm;
 d0=ips.Results.d0;
@@ -89,7 +87,9 @@ z0d(~LM)=NaN;
 clear z0u LM
 
 %% Find the downscaled zero-plane displacement height
-if ~isscalar(d0)
+if isempty(d0)
+  d0d=0;
+else
   d0=readCls(d0);
   if size(d0)==size(z0)
     w=d0./z0;
@@ -102,8 +102,6 @@ if ~isscalar(d0)
   else
     error('size of z0 and d0 must be the same');
   end
-else
-  d0d=d0;
 end
 end
 

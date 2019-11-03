@@ -6,7 +6,7 @@
 % This function downscales wind speed assuming log-wind profile.
 
 %% Input
-% ws: space-time wind class (Wind2DTCls.m) object or workspace variable for total
+% ws: spatial wind class (Wind2DCls.m) object or workspace variable for total
 %      or component wind (m/s);
 % Hm: spatial variable class (V2DCls.m) object or workspace variable for measurement
 %      height of wind (m ag);
@@ -37,7 +37,7 @@ narginchk(3,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
-addRequired(ips,'ws',@(x) validateattributes(x,{'double','V2DCls','Wind2DTCls'},{'nonempty'},...
+addRequired(ips,'ws',@(x) validateattributes(x,{'double','V2DCls','Wind2DCls'},{'nonempty'},...
     mfilename,'ws'));
 addRequired(ips,'Hm',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Hm'));
 addRequired(ips,'Hn',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Hn'));
@@ -55,14 +55,14 @@ d0d=ips.Results.d0d;
 clear ips varargin
 
 %% Read the wind records
-if isa(ws,'Wind2DTCls')
+if isa(ws,'Wind2DCls')
   wty='Component';
 else
   wty='Total';
 end
 switch wty
   case 'Component' % U and V wind
-    [ws,wd,~,~]=ws.readCls(1);
+    [ws,wd,~,~]=ws.readCls;
     wd(wd<0)=wd(wd<0)+360; % E is 0, counter-clock's wise is +
 
   case 'Total' % Total wind
@@ -73,7 +73,7 @@ Hm=readCls(Hm);
 Hn=readCls(Hn);
 
 %% Downscaling of wind speed/direction
-if ~isscalar(z0)
+if ~isa(z0,'scalar')
 % Ratio of shear velocity
   z0=readCls(z0);
   z0d=readCls(z0d);
@@ -127,11 +127,10 @@ switch wty
 end
 end
 
-function [v1,v2]=readCls(vb)
+function v2d=readCls(vb)
 if isa(vb,'V2DCls')
-  [v1,v2]=vb.readCls;
+  v2d=vb.readCls;
 else
-  v1=vb;
-  v2=[];
+  v2d=vb;
 end
 end
