@@ -5,11 +5,11 @@
 %% Functionality
 % Downscaling of shortwave radiation with 5 steps:
 %  1)Partition of global shortwave into direct and diffuse shortwave based on
-%    clear sky index (Ruiz-Arias et al. 2010);
+%    clear sky index;
 %  2)Adjust direct shortwave for optical air depth difference, local illumination
-%    and cast-shadowing (Tao & Barros 2018; Fiddes & Gruber 2014);
-%  3)Adjust diffuse shortwave for sky view factor (Ruiz-Arias et al. 2012);
-%  4)Calculate reflected shortwave (Tao & Barrow 2017);
+%    and cast-shadowing;
+%  3)Adjust diffuse shortwave for sky view factor;
+%  4)Calculate reflected shortwave;
 %  5)Sum the direct, diffuse and reflected component up for the global shortwave.
 
 %% Input:
@@ -49,21 +49,21 @@ narginchk(12,14);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
-addRequired(ips,'SG',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'SG',1));
+addRequired(ips,'SG',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'SG'));
 addRequired(ips,'InS',@(x) any(strcmp(x,{'Atm Trans','TOA SW'})));
-addRequired(ips,'InV',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'InV',3));
-addRequired(ips,'Pa',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pa',4));
-addRequired(ips,'Pad',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pad',5));
-addRequired(ips,'Asp',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Asp',6));
-addRequired(ips,'Slp',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Slp',7));
-addRequired(ips,'MK',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'MK',8));
-addRequired(ips,'SVF',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'SVF',9));
+addRequired(ips,'InV',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'InV'));
+addRequired(ips,'Pa',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pa'));
+addRequired(ips,'Pad',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pad'));
+addRequired(ips,'Asp',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Asp'));
+addRequired(ips,'Slp',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Slp'));
+addRequired(ips,'MK',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'MK'));
+addRequired(ips,'SVF',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'SVF'));
 addRequired(ips,'Az',@(x) isempty(find(x<0 | x>360, 1)));
 addRequired(ips,'El',@(x) isempty(find(x>90, 1)));
-addRequired(ips,'Ab',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Ab',12));
+addRequired(ips,'Ab',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Ab'));
 
-addOptional(ips,'BSA',[],@(x) validateattributes(x,{'double','V2DCls'},{},mfilename,'BSA',13));
-addOptional(ips,'WSA',[],@(x) validateattributes(x,{'double','V2DCls'},{},mfilename,'WSA',14));
+addOptional(ips,'BSA',[],@(x) validateattributes(x,{'double','V2DCls'},{},mfilename,'BSA'));
+addOptional(ips,'WSA',[],@(x) validateattributes(x,{'double','V2DCls'},{},mfilename,'WSA'));
 parse(ips,SG,InS,InV,Pa,Pad,Asp,Slp,MK,SVF,Az,El,Ab,varargin{:});
 BSA=ips.Results.BSA;
 WSA=ips.Results.WSA;
