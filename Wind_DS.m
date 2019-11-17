@@ -87,14 +87,13 @@ if ~isa(z0,'scalar')
     d0=readCls(d0);
     kh=(Hm-d0)./z0;
     if isempty(find(kh<=0 & ws>0, 1))
-      kh(kh<=0)=exp(1);
+      kh(kh<=0)=exp(1); % set to e to prevent Inf in line 95
 
       d0d=readCls(d0d);
       khd=(imresize(Hn,size(z0d),'bilinear')-d0d)./z0d;
-      khd(khd<=0)=exp(1);
+      khd(khd<=0)=1; % When Hn below d0, the scale factor is 0(=ln(1))
       kh=log(khd)./imresize(log(kh),size(z0d),'bilinear');
-      kh(kh<0)=0;
-      kh=kh/mean(kh(~isnan(kh)));
+      kh(kh<0)=0; % When Hn-d0<z0, the scale factor is 0
       kh=kh.*kus; % Combine the weighting factors
       clear khi z0 z0d d0 d0d khd kus
 
@@ -107,7 +106,7 @@ if ~isa(z0,'scalar')
   end
 
 else
-  kh=Hn./Hm; % kus=1
+  kh=log(Hn)./log(Hm); % kus=1
 end
 wsd=imresize(ws,size(kh),'bilinear').*kh;
 clear kh Hn Hm ws

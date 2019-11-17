@@ -42,47 +42,32 @@ addRequired(ips,'Zd',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},
 parse(ips,Ta,LR,Td,LRd,Pa,Z,Zd);
 clear ips
 
-%% Constant
-R=287.0; % Ideal gass constant J/kg*K
-g=9.81; % Gravitational acceleration m/s2
-
-%% Read the inputs
-Z=readCls(Z);
-LR=readCls(LR);
-LRd=readCls(LRd);
-Ta=readCls(Ta);
-Td=readCls(Td);
-Pa=readCls(Pa);
-
-k=isnan(Ta) | isnan(Td) | isnan(Pa) | isnan(Z) | isnan(LR) | isnan(LRd);
-Ta(k)=NaN;
-Td(k)=NaN;
-Td(Td>Ta)=Ta(Td>Ta); % Set Td > Ta to Ta
-Pa(k)=NaN;
-Z(k)=NaN;
-LR(k)=NaN;
-LRd(k)=NaN;
-
 %% Downscaling
-% Air temperature (K)
+Z=readCls(Z);
 Zd=readCls(Zd);
-
 dZ=Zd-imresize(Z,size(Zd),'bilinear');
-clear Zd Z
+clear Z Zd
+
+% Air temperature (K)
+LR=readCls(LR);
+Ta=readCls(Ta);
 Tad=imresize(Ta,size(dZ),'bilinear')+imresize(LR,size(dZ),'bilinear').*dZ;
 
 % Air pressure (Pa)
-Tm=(imresize(Ta,size(dZ),'bilinear')+Tad)/2;
-Pad=imresize(Pa,size(dZ),'bilinear')./exp(g*dZ./(R*Tm));
-clear Tm Ta Pa LR
+Pa=readCls(Pa);
+Pad=Pair_Adj(imresize(Pa,size(dZ),'bilinear'),0,imresize(Ta,size(dZ),'bilinear'),dZ,LR);
+clear Pa LR
 
 % Dew point temperature (K)
+LRd=readCls(LRd);
+Td=readCls(Td);
+Td(Td>Ta)=Ta(Td>Ta); % Set Td > Ta to Ta
 Tdd=imresize(Td,size(dZ))+imresize(LRd,size(dZ),'bilinear').*dZ;
-clear Td LRd
+clear Td LRd Ta
 Tdd(Tdd>Tad)=Tad(Tdd>Tad); % Set Td > Ta to Ta
 
 % Humidity
-[RHd,qd]=Cal_Tdw(Tad,Pad,'Dew Point',Tdd);
+[RHd,qd]=Hum_Cal(Tad,Pad,'Dew Point',Tdd);
 RHd(RHd>100)=100;
 end
 
