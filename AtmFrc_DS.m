@@ -1,6 +1,6 @@
 % Yiwen Mei (ymei2@gmu.edu)
 % CEIE, George Mason University
-% Last update: 05/10/2019
+% Last update: 11/1/2019
 
 %% Functionality
 % Downscaling of air temperature, dew point temperature, air pressure. Specific
@@ -24,7 +24,7 @@
 % RHd: downscaled relative humidity (%).
 
 %% Additional note
-% Require V2DCls.m and Cal_dew.m.
+% Require V2DCls.m, Pair_Adj.m and Hum_Cal.m.
 
 function [Tad,Tdd,Pad,qd,RHd]=AtmFrc_DS(Ta,LR,Td,LRd,Pa,Z,Zd)
 %% Check the inputs
@@ -68,7 +68,6 @@ Tdd(Tdd>Tad)=Tad(Tdd>Tad); % Set Td > Ta to Ta
 
 % Humidity
 [RHd,qd]=Hum_Cal(Tad,Pad,'Dew Point',Tdd);
-RHd(RHd>100)=100;
 end
 
 function v2d=readCls(vb)

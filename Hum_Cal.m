@@ -12,26 +12,28 @@
 %       (K);
 % Pa : V2DCls.m object or workspace variable for air pressure (Pa);
 % InS: characters specifying the type of the third input (Possible types are
-%       'Dew point', 'Specific', or 'Relative', in K, g/g, or %);
+%       'Tdew', 'SHum', or 'RHum', in K, g/g, or %);
 % InV: V2DCls.m object or workspace variable for the third input.
 
 %% Output
+% qc: quality flag of O1 and O2 (1 good, 0 bad);
+
 % If specific humidity is supplied
-% out1: dew point temperature (K);
-% out2: relative humidity (%);
+% O1: dew point temperature (K);
+% O2: relative humidity (%);
 
 % If relative humidity is supplied
-% out1: dew point temperature (K);
-% out2: specific humidity (g/g);
+% O1: dew point temperature (K);
+% O2: specific humidity (g/g);
 
 % If dew point temperature is supplied
-% out1: relative humidity (%);
-% out2: specific humidity (g/g).
+% O1: relative humidity (%);
+% O2: specific humidity (g/g).
 
 %% Additional note
 % Require V2DCls.m.
 
-function [out1,out2]=Hum_Cal(Ta,Pa,InS,InV)
+function [O1,O2,qc]=Hum_Cal(Ta,Pa,InS,InV)
 %% Check the inputs
 narginchk(4,4);
 ips=inputParser;
@@ -39,7 +41,7 @@ ips.FunctionName=mfilename;
 
 addRequired(ips,'Ta',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Ta'));
 addRequired(ips,'Pa',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pa'));
-expInS={'Specific','Relative','Dew Point'};
+expInS={'SHum','RHum','Tdew'};
 msg=cell2mat(cellfun(@(x) [x ', '],expInS,'UniformOutput',false));
 msg=sprintf('Expected InS to be one of the following %s\n',msg);
 addRequired(ips,'InS',@(x) assert(any(strcmp(x,expInS)),msg));
@@ -87,40 +89,47 @@ ms=epsi*es./(Pa-es); % saturated mixing ratio
 clear es Aw Ai Bw Bi Cw Ci
 
 switch InS
-  case 'Specific' % If specific humidity is known
+  case 'SHum' % If specific humidity is known
     e=InV.*Pa./(epsi+(1-epsi)*InV); % from q=epsi*e/(Pa-(1-epsi)*e), InV is q
     Td=C.*log(e./A)./(B-log(e./A))-abs0; % from Magnus formula
     clear e Pa A B C
     m=InV./(1-InV); % mixing ratio
     RH=m./ms*100; % Relative humidity
     clear m ms InV
+
+    qc=Td<=Ta & RH<=100;
     RH(RH>100)=100;
+    Td(Td>Ta)=Ta(Td>Ta);
+    O1=Td;
+    O2=RH;
 
-    out1=Td;
-    out2=RH;
-
-  case 'Relative' % If relative humidity is known
-    m=InV.*ms; % mixing ratio, InV is RH
+  case 'RHum' % If relative humidity is known
+    m=InV.*ms/100; % mixing ratio, InV is RH
     e=m.*Pa./(m+epsi); % from m=epsi*e/(Pa-e)
     Td=C.*log(e./A)./(B-log(e./A))-abs0;
     clear e Pa ms InV A B C
     q=m./(m+1); % Specific humidity
     clear m
 
-    out1=Td;
-    out2=q;
+    qc=q<=.1 & Td<=Ta;
+    Td(Td>Ta)=Ta(Td>Ta);
+    q(q>.1)=.1;
+    O1=Td;
+    O2=q;
 
-  case 'Dew Point'
+  case 'Tdew'
     e=A.*exp(B.*(InV+abs0)./(InV+abs0+C)); % InV is Td
     q=epsi*e./(Pa-(1-epsi)*e);
     clear e InV Pa A B C
     m=q./(1-q); % mixing ratio
     RH=m./ms*100; % Relative humidity
     clear m ms
-    RH(RH>100)=100;
 
-    out1=RH;
-    out2=q;
+    qc=q<=.1 & RH<=100;
+    q(q>.1)=.1;
+    RH(RH>100)=100;
+    O1=RH;
+    O2=q;
 end
 end
 
