@@ -1,47 +1,17 @@
-% Yiwen Mei (ymei2@gmu.edu)
-% CEIE, George Mason University
-% Last update: 8/2/2019
-
-%% Functionality
-% This function is used for the downscaling of incident longwave radiation.
-
-%% Input
-%  LG : spatial map class (V2DCls.m) object or workspace variable for original
-%        incident longwave radiation (W/m2);
-%  Ta : V2DCls.m object or workspace variable for original air temperature (K);
-%  Td : V2DCls.m object or workspace variable for original dew point temperature (K);
-% Tad : V2DCls.m object or workspace variable for downscaled air temperature (K);
-% Tdd : V2DCls.m object or workspace variable for downscaled dew point temperature (K);
-% EmcT: characters specifying the methods to calculate atmospheric emissivity
-%        (it can be a user-specified emissivity or emissivity calculated based
-%        on the Brut, Konz, Satt, Idso, Izio, or Prat method summarized in
-%        Fiddes & Grubler (2014). Possible types are 'user', 'brut', 'konz',
-%        'satt','idso','izio', or 'prat');
-
-% Emd: if EmcT is 'user', use this optional input to specify emissivity as a
-%       V2DCls.m object or workspace variable.
-
-%% Output
-% LGd: downscaled incident longwave radiation (W/m2).
-
-%% Additional note
-% Require V2DCls.m.
-
 function LGd=LW_DS(LG,Ta,Td,Tad,Tdd,EmcT,varargin)
 %% Check the inputs
 narginchk(6,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
-addRequired(ips,'LG',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'LG'));
-addRequired(ips,'Ta',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Ta'));
-addRequired(ips,'Td',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Td'));
-addRequired(ips,'Tad',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Tad'));
-addRequired(ips,'Tdd',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Tdd'));
-addRequired(ips,'EcT',@(x) any(strcmp(x,{'brut','konz','satt','idso','izio','prat'})));
+addRequired(ips,'LG',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'LG'));
+addRequired(ips,'Ta',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Ta'));
+addRequired(ips,'Td',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Td'));
+addRequired(ips,'Tad',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Tad'));
+addRequired(ips,'Tdd',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Tdd'));
+addRequired(ips,'EcT',@(x) any(strcmp(x,{'User','Brut','Konz','Satt','Idso','Izio','Prat'})));
 
-addOptional(ips,'Emd',[],@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},...
-    mfilename,'Emd'));
+addOptional(ips,'Emd',[],@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Emd'));
 parse(ips,LG,Ta,Td,Tad,Tdd,EmcT,varargin{:});
 Emd=ips.Results.Emd;
 clear ips varargin
@@ -54,7 +24,7 @@ Tdd=readCls(Tdd);
 
 %% Emissivity
 switch EmcT
-  case 'user'
+  case 'User'
     emd=readCls(Emd);
     em=imresize(emd,size(LG),'bilinear');
 
@@ -64,27 +34,27 @@ switch EmcT
     ed=Magnus_F(Tdd,Tad);
 
     switch EmcT % Forms of clear-sky emissivity listed in Gubler et al. (2012)
-      case 'brut'
+      case 'Brut'
         em_cl=1.24*(e./Ta).^(1./7);
         emd_cl=1.24*(ed./Tad).^(1./7);
 
-      case 'konz' % Method addopted in Fiddes & Grubler (2014)
+      case 'Konz' % Method addopted in Fiddes & Grubler (2014)
         em_cl=.23+.484*(e./Ta).^(1./8);
         emd_cl=.23+.484*(ed./Tad).^(1./8);
 
-      case 'satt' % Method addopted in Cosgrove et al. (2003)
+      case 'Satt' % Method addopted in Cosgrove et al. (2003)
         em_cl=1.08*(1-exp(-e.^(Ta/2016)));
         emd_cl=1.08*(1-exp(-ed.^(Tad/2016)));
 
-      case 'idso'
+      case 'Idso'
         em_cl=.7+5.95e-5*e.*exp(1500./Ta);
         emd_cl=.7+5.95e-5*e.*exp(1500./Tad);
 
-      case 'izio' % Method addopted in Gupta & Tarboton et al. (2016)
+      case 'Izio' % Method addopted in Gupta & Tarboton et al. (2016)
         em_cl=1-.43*exp(-11.5*e./Ta);
         emd_cl=1-.43*exp(-11.5*ed./Tad);
 
-      case 'prat'
+      case 'Prat'
         em_cl=1-(1+46.5*e./Ta)*exp(-(1.2+3*46.5*e./Ta).^.5);
         emd_cl=1-(1+46.5*ed./Tad)*exp(-(1.2+3*46.5*ed./Tad).^.5);
     end
@@ -107,8 +77,10 @@ LGd=kem.*kTa.^4.*imresize(LG,size(Tad),'bilinear');
 end
 
 function v2d=readCls(vb)
-if isa(vb,'V2DCls')
-  v2d=vb.readCls;
+if isa(vb,'char')
+  v2d=matfile(vb);
+  vb=cell2mat(who(v2d));
+  eval(sprintf('v2d=v2d.%s;',vb));
 else
   v2d=vb;
 end

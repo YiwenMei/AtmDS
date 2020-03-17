@@ -1,49 +1,13 @@
-% Yiwen Mei (ymei2@gmu.edu)
-% CEIE, George Mason University
-% Last update: 06/11/2019
-
-%% Functionality
-% Calculate the distance to the horizon, the horizontal angle, and shadow mask
-%  of a study domain for a time step. Horizon is the furthest point that a particular
-%  location can see; horizontal angle is the view angle required to see the highest
-%  point at the horizon; shadow mask determines whether a location is shadowed
-%  by its abient terrain.
-
-%% Input:
-%  X : spatial map class (V2DCls.m) object or workspace variable for the X coordinate
-%       of study domain;
-%  Y : V2DCls.m object or workspace variable for the Y coordinate of study domain;
-% Lat: V2DCls.m object or workspace variable for latitude of the study domain
-%       (deg North);
-%  Z : V2DCls.m object or workspace variable for elevation of the domain (m asl);
-% Az : solar azimuth for the study domain (deg, N is 0 clock's wise is +; can
-%       be any dimension representing the Az of the study domain);
-% El : solar altitude for the study domain (deg, can be any dimension);
-
-% rm: maximum search radius (m, unset to evoke the built-in algorithm calculating
-%      location specific rm).
-
-%% Output:
-% Hrz: horizon of terrain at the direction of solar azimuth (m);
-% a_h: horizontal angle of terrain at the direction of solar azimuth (deg);
-% Mk : a shadow mask for terrain (0 -> shadowed, 1 -> non-shadowed).
-
-%% Additional note:
-% Please use a Catesian coordinate for the calculation;
-% Bilinear interpolation (aggregation) is used to downscale (upscale) Az/El if
-%  the dimensions are different than Z;
-% Require V2DCls.m.
-
 function [Hrz,a_h,Mk]=CastShadow(X,Y,Lat,Z,Az,El,varargin)
 %% Check the inputs
 narginchk(6,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
-addRequired(ips,'X',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'X'));
-addRequired(ips,'Y',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Y'));
-addRequired(ips,'Lat',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Lat'));
-addRequired(ips,'Z',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Z'));
+addRequired(ips,'X',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'X'));
+addRequired(ips,'Y',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Y'));
+addRequired(ips,'Lat',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Lat'));
+addRequired(ips,'Z',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Z'));
 addRequired(ips,'Az',@(x) isempty(find(x<0 | x>360, 1)));
 addRequired(ips,'El',@(x) isempty(find(x>90, 1)));
 
@@ -185,8 +149,10 @@ end
 end
 
 function v2d=readCls(vb)
-if isa(vb,'V2DCls')
-  v2d=vb.readCls;
+if isa(vb,'char')
+  v2d=matfile(vb);
+  vb=cell2mat(who(v2d));
+  eval(sprintf('v2d=v2d.%s;',vb));
 else
   v2d=vb;
 end

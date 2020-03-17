@@ -1,69 +1,24 @@
-% Yiwen Mei (ymei2@gmu.edu)
-% CEIE, George Mason University
-% Last update: 8/2/2019
-
-%% Functionality
-% Downscaling of shortwave radiation with 5 steps:
-%  1)Partition of global shortwave into direct and diffuse shortwave based on
-%    clear sky index;
-%  2)Adjust direct shortwave for optical air depth difference, local illumination
-%    and cast-shadowing;
-%  3)Adjust diffuse shortwave for sky view factor;
-%  4)Calculate reflected shortwave;
-%  5)Sum the direct, diffuse and reflected component up for the global shortwave.
-
-%% Input:
-% SG : spatial map class (V2DCls.m) object or workspace variable for original
-%       incident shortwave (W/m2);
-% InS: characters specifying methods to calculate broad-band atmospheric transmissivity
-%       (this can be the the broad-band atmospheric transmissivity or incident
-%       shortwave flux at TOA, W/m2. Possible strings are 'Atm Trans' or 'TOA SW');
-% InV: V2DCls.m object or workspace variable for high resolution InS;
-% Pa : V2DCls.m object or workspace variable for original air pressure (Pa);
-% Pad: V2DCls.m object or workspace variable for downscaled air pressure (Pa);
-% Asp: V2DCls.m object or workspace variable for high resolution terrain aspect
-%       (deg, N is 0 clock's wise is +);
-% Slp: V2DCls.m object or workspace variable for high resolution terrain slope (deg);
-% Mk : V2DCls.m object or workspace variable for high resolution binary shadow
-%       mask representing the shadowed area (0: shadowed, 1: non-shadowed);
-% SVF: V2DCls.m object or workspace variable for high resolution sky view factor;
-% Az : Solar azimuth for the study domain (deg, N is 0 clock's wise is +);
-% El : Solar altitude for the study domain (deg);
-% Ab : V2DCls.m object or workspace variable for original surface albedo;
-
-% BSA: V2DCls.m object or workspace variable for the black-sky albedo;
-% WSA: V2DCls.m object or workspace variable for the white-sky albedo.
-
-%% Output:
-% SGd: downscaled incident shortwave flux (W/m2);
-% Sbd: downscaled incident beam shortwave flux (W/m2);
-% Sdd: downscaled incident diffuse shortwave flux (W/m2);
-% Srd: downscaled incident reflect shortwave flux (W/m2).
-
-%% Additional note:
-% Require V2DCls.m.
-
 function [SGd,Sbd,Sdd,Srd]=SW_DS(SG,InS,InV,Pa,Pad,Asp,Slp,MK,SVF,Az,El,Ab,varargin)
 %% Check the inputs
 narginchk(12,14);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
-addRequired(ips,'SG',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'SG'));
-addRequired(ips,'InS',@(x) any(strcmp(x,{'Atm Trans','TOA SW'})));
-addRequired(ips,'InV',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'InV'));
-addRequired(ips,'Pa',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pa'));
-addRequired(ips,'Pad',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Pad'));
-addRequired(ips,'Asp',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Asp'));
-addRequired(ips,'Slp',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Slp'));
-addRequired(ips,'MK',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'MK'));
-addRequired(ips,'SVF',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'SVF'));
+addRequired(ips,'SG',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'SG'));
+addRequired(ips,'InS',@(x) any(strcmp(x,{'User','Built-in'})));
+addRequired(ips,'InV',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'InV'));
+addRequired(ips,'Pa',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Pa'));
+addRequired(ips,'Pad',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Pad'));
+addRequired(ips,'Asp',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Asp'));
+addRequired(ips,'Slp',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Slp'));
+addRequired(ips,'MK',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'MK'));
+addRequired(ips,'SVF',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'SVF'));
 addRequired(ips,'Az',@(x) isempty(find(x<0 | x>360, 1)));
 addRequired(ips,'El',@(x) isempty(find(x>90, 1)));
-addRequired(ips,'Ab',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Ab'));
+addRequired(ips,'Ab',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Ab'));
 
-addOptional(ips,'BSA',[],@(x) validateattributes(x,{'double','V2DCls'},{},mfilename,'BSA'));
-addOptional(ips,'WSA',[],@(x) validateattributes(x,{'double','V2DCls'},{},mfilename,'WSA'));
+addOptional(ips,'BSA',[],@(x) validateattributes(x,{'double','char'},{},mfilename,'BSA'));
+addOptional(ips,'WSA',[],@(x) validateattributes(x,{'double','char'},{},mfilename,'WSA'));
 parse(ips,SG,InS,InV,Pa,Pad,Asp,Slp,MK,SVF,Az,El,Ab,varargin{:});
 BSA=ips.Results.BSA;
 WSA=ips.Results.WSA;
@@ -75,17 +30,20 @@ Pad=readCls(Pad);
 if ~isempty(find(SG>0, 1))
   Pa=readCls(Pa);
   switch InS
-    case 'Atm Trans'
-      tao_m=readCls(InV);
-    case 'TOA SW'
+    case 'Built-in'
+      S0=1362; % W/m2
+      rt_R=1-0.01672*cos(0.9856*(InV-4));
+      ST=S0*rt_R^2*cosd(90-El);
+      ST=imresize(ST,size(SG));
+      ST(ST<0)=0;
+      ST(ST<SG)=SG(ST<SG);
+    case 'User'
       ST=readCls(InV);
       if ~isempty(find(SG>0 & ST==0, 1))
         error('When SG>0, ST must >0');
       end
-      tao_m=SG./ST;
-    otherwise
-      error('InS must be "Atm Trans" or "TOA SW"');
   end
+  tao_m=SG./ST;
   k=isnan(SG) | isnan(Pa);
   SG(k)=NaN;
   Pa(k)=NaN;
@@ -179,8 +137,10 @@ end
 end
 
 function v2d=readCls(vb)
-if isa(vb,'V2DCls')
-  v2d=vb.readCls;
+if isa(vb,'char')
+  v2d=matfile(vb);
+  vb=cell2mat(who(v2d));
+  eval(sprintf('v2d=v2d.%s;',vb));
 else
   v2d=vb;
 end

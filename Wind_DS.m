@@ -1,51 +1,17 @@
-% Yiwen Mei (ymei2@gmu.edu)
-% CEIE, George Mason University
-% Last update: 8/17/2019
-
-%% Functionality
-% This function downscales wind speed assuming log-wind profile.
-
-%% Input
-% ws: spatial wind class (Wind2DCls.m) object or workspace variable for total
-%      or component wind (m/s);
-% Hm: spatial variable class (V2DCls.m) object or workspace variable for measurement
-%      height of wind (m ag);
-% Hn: V2DCls.m object or workspace variable for new measurement height of outputted
-%      wind (m ag);
-
-% z0 : V2DCls.m object or workspace variable for original surface roughness (m ag);
-% z0d: V2DCls.m object or workspace variable for downscaled surface roughness
-%       (m ag);
-% d0 : V2DCls.m object or workspace variable for original zero-plane displacement
-%       height (m ag);
-% d0d: V2DCls.m object or workspace variable for downscaled zero-plane displacement
-%       height (m ag).
-
-%% Output
-% wsd: downscaled wind speed (m/s);
-
-% wdd: downscaled wind direction (E is 0, counter-clock's wise is +);
-% ud : downscaled eastward wind (m/s);
-% vd : downscaled northward wind (m/s).
-
-%% Additional note
-% Require V2DCls.m.
-
 function [wsd,wdd,ud,vd]=Wind_DS(ws,Hm,Hn,varargin)
 %% Check inputs
 narginchk(3,7);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
-addRequired(ips,'ws',@(x) validateattributes(x,{'double','V2DCls','Wind2DCls'},{'nonempty'},...
-    mfilename,'ws'));
-addRequired(ips,'Hm',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Hm'));
-addRequired(ips,'Hn',@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'Hn'));
+addRequired(ips,'ws',@(x) validateattributes(x,{'double','char',},{'nonempty'},mfilename,'ws'));
+addRequired(ips,'Hm',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Hm'));
+addRequired(ips,'Hn',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Hn'));
 
-addOptional(ips,'z0',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'z0'));
-addOptional(ips,'z0d',1,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'z0d'));
-addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'d0'));
-addOptional(ips,'d0d',0,@(x) validateattributes(x,{'double','V2DCls'},{'nonempty'},mfilename,'d0d'));
+addOptional(ips,'z0',1,@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'z0'));
+addOptional(ips,'z0d',1,@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'z0d'));
+addOptional(ips,'d0',0,@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'d0'));
+addOptional(ips,'d0d',0,@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'d0d'));
 
 parse(ips,ws,Hm,Hn,varargin{:});
 z0=ips.Results.z0;
@@ -55,18 +21,29 @@ d0d=ips.Results.d0d;
 clear ips varargin
 
 %% Read the wind records
-if isa(ws,'Wind2DCls')
-  wty='Component';
-else
-  wty='Total';
-end
-switch wty
-  case 'Component' % U and V wind
-    [ws,wd,~,~]=ws.readCls;
+if isa(ws,'double')
+  if size(ws,3)==2
+    wty='Component';
+    wd=atan2d(ws(:,:,2),ws(:,:,1));
     wd(wd<0)=wd(wd<0)+360; % E is 0, counter-clock's wise is +
-
-  case 'Total' % Total wind
+    ws=hypot(ws(:,:,1),ws(:,:,2));
+  elseif size(ws,3)==1
+    wty='Total';
+  else
+    error('WspTyp must be either "Component" or "Total"');
+  end
+else
+  if size(ws,1)==2
+    wty='Component';
+    wd=atan2d(readCls(ws(2,:)),readCls(ws(1,:)));
+    wd(wd<0)=wd(wd<0)+360; % E is 0, counter-clock's wise is +
+    ws=hypot(readCls(ws(1,:)),readCls(ws(2,:)));
+  elseif size(ws,1)==1
+    wty='Total';
     ws=readCls(ws);
+  else
+    error('WspTyp must be either "Component" or "Total"');
+  end
 end
 
 Hm=readCls(Hm);
@@ -127,8 +104,10 @@ end
 end
 
 function v2d=readCls(vb)
-if isa(vb,'V2DCls')
-  v2d=vb.readCls;
+if isa(vb,'char')
+  v2d=matfile(vb);
+  vb=cell2mat(who(v2d));
+  eval(sprintf('v2d=v2d.%s;',vb));
 else
   v2d=vb;
 end

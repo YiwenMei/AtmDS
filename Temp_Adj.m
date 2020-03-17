@@ -1,36 +1,28 @@
-function Po=Pair_Adj(Pi,Hi,Ti,varargin)
+function To=Temp_Adj(Ti,Hi,varargin)
 %% Check the inputs
-narginchk(3,5);
+narginchk(2,4);
 ips=inputParser;
 ips.FunctionName=mfilename;
 
-addRequired(ips,'Pi',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Pi'));
-addRequired(ips,'Hi',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Hi'));
 addRequired(ips,'Ti',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Ti'));
+addRequired(ips,'Hi',@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Hi'));
 
 addOptional(ips,'Ho',0,@(x) validateattributes(x,{'double','char'},{'nonempty'},mfilename,'Ho'));
 addOptional(ips,'LR',-0.0065,@(x) validateattributes(x,{'double','char'},{'nonempty'},...
     mfilename,'LR'));
 
-parse(ips,Pi,Hi,Ti,varargin{:});
+parse(ips,Ti,Hi,varargin{:});
 Ho=ips.Results.Ho;
 LR=ips.Results.LR;
 clear ips varargin
 
-%% Adjust air pressure
-R=287.0; % Ideal gass constant J/kg*K
-g=9.81; % Gravitational acceleration m/s2
-
-Pi=readCls(Pi);
-Hi=readCls(Hi);
+%% Adjust temperature
 Ti=readCls(Ti);
-Ho=readCls(Ho);
+Hi=readCls(Hi);
 LR=readCls(LR);
-LR=imresize(LR,size(Pi),'bilinear');
+LR=imresize(LR,size(Ti),'bilinear');
 
-dH=Ho-Hi;
-clear Ho Hi
-Po=Pi./exp(g*dH./(R*(Ti+LR.*dH/2)));
+To=LR.*(Ho-Hi)+Ti; % Adjust temperature
 end
 
 function v2d=readCls(vb)
