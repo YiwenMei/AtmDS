@@ -1,6 +1,6 @@
 # AtmDS
 This repository contains functions to implement the atmospheric variable downscaling framework documented in Mei et al. (2019) and Rouf et al. (2019).
 
-Mei, Y., Maggioni, V., Houser P., Xue, Y., & Rouf, T. (2019) A Nonparametric Statistical Technique for Spatial Downscaling of Precipitation over High Mountain Asia (Under review). Water Resour. Res.
+Mei, Y., Maggioni, V., Houser, P. R., Xue, Y., & Rouf, T. (2020). A nonparametric statistical technique for spatial downscaling of precipitation over High Mountain Asia. Water Resour. Res. 56(11), e2020WR07472. 
 
-Rouf, T., Mei, Y., Maggioni, V., Houser P., & Noonan M. (2019) A physically-based downscaling technique for a set of atmospheric variables (In press). J. Hydrometeor.
+Rouf, T., Mei, Y., Maggioni, V., Houser, P. R., & Noonan, M. (2019). A physically-based downscaling technique for a set of atmospheric variables. J. Hydrometeorol. 21(1), 93-108.
